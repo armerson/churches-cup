@@ -582,7 +582,7 @@ function renderConfirmList() {
         s.status === 'pending'
     );
     if (!pending.length) { el.innerHTML = '<div class="no-data">Nothing to confirm right now — check back after your opponents submit.</div>'; return; }
-    const myRoster = JSON.parse(localStorage.getItem(`cc_roster_${currentTeam}`) || '[]');
+    const myRoster = (allRosters[currentTeam] || JSON.parse(localStorage.getItem(`cc_roster_${currentTeam}`) || '[]')).filter(p => p);
     const rosterOpts = myRoster.map(p => `<option value="${p}">${p}</option>`).join('');
 
     el.innerHTML = pending.map(s => {
