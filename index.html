@@ -564,11 +564,20 @@ function renderMyResults() {
     const mine = allScores.filter(s => s.team1 === currentTeam || s.team2 === currentTeam);
     if (!mine.length) { el.innerHTML = '<div class="no-data">No results yet — submit your first score above!</div>'; return; }
     el.innerHTML = mine.map(s => {
-        const scorers = Array.isArray(s.scorers) ? s.scorers : [];
+        const myScorers = currentTeam === s.team1
+            ? (Array.isArray(s.scorers)  ? s.scorers  : [])
+            : (Array.isArray(s.scorers2) ? s.scorers2 : []);
+        const oppScorers = currentTeam === s.team1
+            ? (Array.isArray(s.scorers2) ? s.scorers2 : [])
+            : (Array.isArray(s.scorers)  ? s.scorers  : []);
+        const opp = currentTeam === s.team1 ? s.team2 : s.team1;
+        const myScore = currentTeam === s.team1 ? s.score1 : s.score2;
+        const oppScore = currentTeam === s.team1 ? s.score2 : s.score1;
         return `<div class="score-item ${s.status}">
-            <strong>${s.team1} ${s.score1}–${s.score2} ${s.team2}</strong>
+            <strong>${currentTeam} ${myScore}–${oppScore} ${opp}</strong>
             <span class="status-badge status-${s.status}">${s.status}</span>
-            ${scorers.length ? `<small style="display:block;color:#666;margin-top:4px;">Scorers: ${scorers.join(', ')}</small>` : ''}
+            ${myScorers.length  ? `<small style="display:block;color:#274296;margin-top:4px;">Your scorers: ${myScorers.join(', ')}</small>`  : ''}
+            ${oppScorers.length ? `<small style="display:block;color:#666;margin-top:2px;">${opp} scorers: ${oppScorers.join(', ')}</small>` : ''}
         </div>`;
     }).join('');
 }
