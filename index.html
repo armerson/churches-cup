@@ -9,27 +9,34 @@
         html, body { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
         body { display: flex; flex-direction: column; }
 
-        header { background: linear-gradient(135deg, #366092 0%, #2a4d73 100%); color: white; padding: 15px; text-align: center; }
-        header h1 { font-size: 20px; margin-bottom: 8px; }
+        :root { --royal: #2B4EAF; --royal-dark: #1e3a8a; --royal-light: #3b5fd4; }
 
-        .nav-tabs { display: flex; gap: 5px; padding: 8px; background: white; border-bottom: 1px solid #ddd; overflow-x: auto; }
-        .tab-btn { padding: 12px 14px; background: #f0f0f0; color: #333; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0; display: block; width: auto; margin-top: 0; }
-        .tab-btn.active { background: #366092; color: white; }
+        header { background: var(--royal); color: white; padding: 0; text-align: center; }
+        .header-brand { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 16px 10px; }
+        .header-logo { width: 48px; height: 48px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+        .header-text { text-align: left; }
+        .header-text .org { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; }
+        .header-text h1 { font-size: 22px; font-weight: 800; letter-spacing: 0.5px; line-height: 1.1; }
+        .header-team-bar { background: var(--royal-dark); padding: 6px 16px; font-size: 12px; font-weight: 600; opacity: 0.9; min-height: 28px; }
+
+        .nav-tabs { display: flex; gap: 4px; padding: 8px; background: white; border-bottom: 2px solid var(--royal); overflow-x: auto; }
+        .tab-btn { padding: 9px 13px; background: #f0f4ff; color: #444; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0; display: block; width: auto; margin-top: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        .tab-btn.active { background: var(--royal); color: white; }
 
         .content { flex: 1; overflow-y: auto; padding: 10px; }
         .section { display: none; }
         .section.active { display: block; }
 
         .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .card h2 { font-size: 18px; margin-bottom: 12px; color: #366092; }
-        .card h3 { font-size: 15px; margin-top: 20px; margin-bottom: 10px; color: #366092; }
+        .card h2 { font-size: 18px; margin-bottom: 12px; color: var(--royal); }
+        .card h3 { font-size: 15px; margin-top: 20px; margin-bottom: 10px; color: var(--royal); }
 
         .form-group { margin-bottom: 12px; }
         label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; }
         input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
-        input:focus, select:focus { outline: none; border-color: #366092; }
+        input:focus, select:focus { outline: none; border-color: var(--royal); }
 
-        button { width: 100%; padding: 14px; background: #366092; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 600; margin-top: 8px; }
+        button { width: 100%; padding: 14px; background: var(--royal); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 600; margin-top: 8px; }
         button:disabled { background: #aaa; cursor: not-allowed; }
         button.success { background: #28a745; }
         button.danger  { background: #dc3545; }
@@ -37,7 +44,7 @@
 
         .code-input { letter-spacing: 4px; font-size: 24px; text-align: center; font-weight: bold; }
         .player-badge { display: inline-block; background: #e2efda; color: #276d3e; padding: 6px 10px; border-radius: 4px; font-size: 12px; margin-right: 6px; margin-bottom: 6px; }
-        .score-item { background: #f9f9f9; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #366092; }
+        .score-item { background: #f9f9f9; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid var(--royal); }
         .score-item.pending  { border-left-color: #ffc107; }
         .score-item.confirmed { border-left-color: #28a745; }
         .score-item.disputed  { border-left-color: #dc3545; }
@@ -56,9 +63,9 @@
         .group-section { margin-bottom: 20px; }
         .group-header { font-size: 14px; font-weight: 600; margin-bottom: 8px; padding: 8px; background: #f0f0f0; border-radius: 4px; }
         .scorer-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-        .scorer-goals { background: #366092; color: white; padding: 2px 8px; border-radius: 3px; font-weight: 600; }
+        .scorer-goals { background: var(--royal); color: white; padding: 2px 8px; border-radius: 3px; font-weight: 600; }
 
-        .bracket-match { border: 1px solid #366092; border-radius: 4px; padding: 8px; margin: 6px 0; background: #f9f9f9; }
+        .bracket-match { border: 1px solid var(--royal); border-radius: 4px; padding: 8px; margin: 6px 0; background: #f9f9f9; }
         .bracket-team { padding: 4px; border-bottom: 1px solid #ddd; font-size: 12px; }
         .bracket-team:last-child { border-bottom: none; }
 
@@ -78,17 +85,23 @@
 <body>
 
 <header>
-    <h1>⚽ Churches Cup 2026</h1>
-    <p id="headerSubtitle">Team Score &amp; Goalscorer Entry</p>
+    <div class="header-brand">
+        <div class="header-logo">⚽</div>
+        <div class="header-text">
+            <div class="org">Ambassadors Football</div>
+            <h1>Churches Cup 2026</h1>
+        </div>
+    </div>
+    <div class="header-team-bar" id="headerTeamBar"></div>
 </header>
 
 <div class="nav-tabs">
-    <button class="tab-btn active visible" onclick="showTab('setup',this)">Setup</button>
+    <button class="tab-btn active visible" onclick="showTab('setup',this)">Login</button>
     <button class="tab-btn" id="btnRoster"    onclick="showTab('roster',this)">Roster</button>
-    <button class="tab-btn" id="btnSubmit"    onclick="showTab('score-entry',this)">Submit</button>
+    <button class="tab-btn" id="btnSubmit"    onclick="showTab('score-entry',this)">Report Score</button>
     <button class="tab-btn" id="btnConfirm"   onclick="showTab('confirm',this)">Confirm</button>
-    <button class="tab-btn" id="btnTable"     onclick="showTab('leaderboard',this)">Table</button>
-    <button class="tab-btn" id="btnKnockout"  onclick="showTab('knockout',this)">KO</button>
+    <button class="tab-btn" id="btnTable"     onclick="showTab('leaderboard',this)">Standings</button>
+    <button class="tab-btn" id="btnKnockout"  onclick="showTab('knockout',this)">Knockout</button>
     <button class="tab-btn" id="btnOrganizer" onclick="showTab('organizer',this)">Organizer</button>
 </div>
 
@@ -114,7 +127,7 @@
     <div id="roster" class="section">
         <div class="card">
             <h2>Team Roster</h2>
-            <div id="rosterTeamName" style="font-weight:600;margin-bottom:10px;color:#366092;"></div>
+            <div id="rosterTeamName" style="font-weight:600;margin-bottom:10px;color:var(--royal);"></div>
             <p style="font-size:13px;color:#666;margin-bottom:12px;">Enter up to 10 players (used for goalscorer selection)</p>
             <div id="rosterInputs"></div>
             <button onclick="saveRoster()" class="success" id="saveRosterBtn">✓ Save Roster</button>
@@ -128,13 +141,13 @@
     <div id="score-entry" class="section">
         <div class="card">
             <h2>Submit Score</h2>
-            <div id="scoreTeamDisplay" style="font-weight:600;margin-bottom:12px;color:#366092;"></div>
+            <div id="scoreTeamDisplay" style="font-weight:600;margin-bottom:12px;color:var(--royal);"></div>
             <div class="form-group">
                 <label>Opponent</label>
                 <select id="matchSelect" onchange="loadMatch()"><option value="">-- Choose --</option></select>
             </div>
             <div id="scoreForm" style="display:none;">
-                <div style="background:#f0f5ff;padding:12px;border-radius:6px;margin-bottom:12px;border-left:4px solid #366092;font-weight:600;" id="matchInfo"></div>
+                <div style="background:#f0f5ff;padding:12px;border-radius:6px;margin-bottom:12px;border-left:4px solid var(--royal);font-weight:600;" id="matchInfo"></div>
                 <div class="form-group"><label>Your Score</label><input type="number" id="team1Score" value="0" min="0" max="99"></div>
                 <div class="form-group">
                     <label>Goalscorers</label>
@@ -162,7 +175,7 @@
     <div id="confirm" class="section">
         <div class="card">
             <h2>Confirm Scores</h2>
-            <div id="confirmTeamDisplay" style="font-weight:600;margin-bottom:10px;color:#366092;"></div>
+            <div id="confirmTeamDisplay" style="font-weight:600;margin-bottom:10px;color:var(--royal);"></div>
             <p style="font-size:13px;color:#666;margin-bottom:12px;">Scores submitted by the other team appear here for you to confirm or dispute.</p>
             <div id="pendingScoresList"></div>
             <button onclick="refreshData()" class="secondary" style="margin-top:8px;">↻ Refresh</button>
@@ -183,7 +196,7 @@
     <!-- EDIT SCORE MODAL -->
     <div id="editScoreModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;">
         <div style="background:white;border-radius:8px;padding:20px;margin:20px;width:calc(100% - 40px);max-width:400px;">
-            <h3 style="margin-bottom:15px;color:#366092;" id="editScoreTitle"></h3>
+            <h3 style="margin-bottom:15px;color:var(--royal);" id="editScoreTitle"></h3>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
                 <span id="editT1" style="flex:1;font-weight:600;font-size:14px;"></span>
                 <input type="number" id="editScore1" min="0" max="99" style="width:55px;text-align:center;font-size:20px;font-weight:bold;padding:8px;">
@@ -213,7 +226,7 @@
         <!-- KO Score Entry Modal -->
         <div id="koModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;">
             <div style="background:white;border-radius:8px;padding:20px;margin:20px;width:calc(100%-40px);max-width:400px;">
-                <h3 id="koModalTitle" style="margin-bottom:15px;color:#366092;"></h3>
+                <h3 id="koModalTitle" style="margin-bottom:15px;color:var(--royal);"></h3>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
                     <span id="koT1" style="flex:1;font-weight:600;font-size:14px;"></span>
                     <input type="number" id="koScore1" min="0" max="99" value="0" style="width:55px;text-align:center;font-size:20px;font-weight:bold;padding:8px;">
@@ -360,7 +373,7 @@ function updateUI() {
     }
 
     if (loggedIn) {
-        document.getElementById('headerSubtitle').textContent = 'Logged in: ' + currentTeam;
+        document.getElementById('headerTeamBar').textContent = '⚽  Logged in as: ' + currentTeam;
         try { document.getElementById('rosterTeamName').textContent = 'Team: ' + currentTeam; } catch(e) { console.error('rosterTeamName',e); }
         try { document.getElementById('scoreTeamDisplay').textContent = 'Submitting as: ' + currentTeam; } catch(e) { console.error('scoreTeamDisplay',e); }
         try { document.getElementById('confirmTeamDisplay').textContent = 'Team: ' + currentTeam; } catch(e) { console.error('confirmTeamDisplay',e); }
@@ -553,7 +566,7 @@ async function submitScore() {
 function renderMyResults() {
     const el = document.getElementById('myResultsList');
     const mine = allScores.filter(s => s.team1 === currentTeam || s.team2 === currentTeam);
-    if (!mine.length) { el.innerHTML = '<div class="no-data">No results yet.</div>'; return; }
+    if (!mine.length) { el.innerHTML = '<div class="no-data">No results yet — submit your first score above!</div>'; return; }
     el.innerHTML = mine.map(s => {
         const scorers = Array.isArray(s.scorers) ? s.scorers : [];
         return `<div class="score-item ${s.status}">
@@ -572,7 +585,7 @@ function renderConfirmList() {
         s.submittedBy !== currentTeam &&
         s.status === 'pending'
     );
-    if (!pending.length) { el.innerHTML = '<div class="no-data">No pending confirmations.</div>'; return; }
+    if (!pending.length) { el.innerHTML = '<div class="no-data">Nothing to confirm right now — check back after your opponents submit.</div>'; return; }
     const myRoster = JSON.parse(localStorage.getItem(`cc_roster_${currentTeam}`) || '[]');
     const rosterOpts = myRoster.map(p => `<option value="${p}">${p}</option>`).join('');
 
@@ -775,7 +788,7 @@ function switchKOTab(comp) {
     currentKOComp = comp;
     ['championship','shield','plate'].forEach(c => {
         const btn = document.getElementById('koTab' + c.charAt(0).toUpperCase() + c.slice(1));
-        if (btn) btn.style.background = c === comp ? '#366092' : '#6c757d';
+        if (btn) btn.style.background = c === comp ? 'var(--royal)' : '#6c757d';
     });
     renderBracket();
 }
@@ -935,7 +948,7 @@ function renderBracket() {
 
 function roundSection(title, content) {
     return `<div style="margin-bottom:16px;">
-        <div style="font-size:13px;font-weight:700;color:#366092;border-bottom:2px solid #366092;padding-bottom:4px;margin-bottom:8px;">${title}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--royal);border-bottom:2px solid var(--royal);padding-bottom:4px;margin-bottom:8px;">${title}</div>
         ${content}
     </div>`;
 }
