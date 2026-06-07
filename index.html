@@ -530,7 +530,7 @@ async function submitScore() {
     const scorersArray = [];
     Object.entries(currentScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) scorersArray.push(p); });
 
-    const myGroup = Object.entries(groups).find(([, teams]) => teams.includes(currentTeam))?.[0] || '';
+    const myGroup = (Object.entries(groups).find(([, teams]) => teams.includes(currentTeam)) || [])[0] || '';
 
     const btn = document.getElementById('submitScoreBtn');
     btn.disabled = true;
@@ -848,14 +848,14 @@ function renderBracket() {
     if (comp === 'championship') {
         // R16 seedings: A1vH2, B1vG2, C1vF2, D1vE2, E1vD2, F1vC2, G1vB2, H1vA2
         const r16 = [
-            {id:'c-r16-1', t1: st.A?.[0], t2: st.H?.[1], label:'R16: A1 vs H2'},
-            {id:'c-r16-2', t1: st.B?.[0], t2: st.G?.[1], label:'R16: B1 vs G2'},
-            {id:'c-r16-3', t1: st.C?.[0], t2: st.F?.[1], label:'R16: C1 vs F2'},
-            {id:'c-r16-4', t1: st.D?.[0], t2: st.E?.[1], label:'R16: D1 vs E2'},
-            {id:'c-r16-5', t1: st.E?.[0], t2: st.D?.[1], label:'R16: E1 vs D2'},
-            {id:'c-r16-6', t1: st.F?.[0], t2: st.C?.[1], label:'R16: F1 vs C2'},
-            {id:'c-r16-7', t1: st.G?.[0], t2: st.B?.[1], label:'R16: G1 vs B2'},
-            {id:'c-r16-8', t1: st.H?.[0], t2: st.A?.[1], label:'R16: H1 vs A2'},
+            {id:'c-r16-1', t1: (st.A ? st.A[0] : undefined), t2: (st.H ? st.H[1] : undefined), label:'R16: A1 vs H2'},
+            {id:'c-r16-2', t1: (st.B ? st.B[0] : undefined), t2: (st.G ? st.G[1] : undefined), label:'R16: B1 vs G2'},
+            {id:'c-r16-3', t1: (st.C ? st.C[0] : undefined), t2: (st.F ? st.F[1] : undefined), label:'R16: C1 vs F2'},
+            {id:'c-r16-4', t1: (st.D ? st.D[0] : undefined), t2: (st.E ? st.E[1] : undefined), label:'R16: D1 vs E2'},
+            {id:'c-r16-5', t1: (st.E ? st.E[0] : undefined), t2: (st.D ? st.D[1] : undefined), label:'R16: E1 vs D2'},
+            {id:'c-r16-6', t1: (st.F ? st.F[0] : undefined), t2: (st.C ? st.C[1] : undefined), label:'R16: F1 vs C2'},
+            {id:'c-r16-7', t1: (st.G ? st.G[0] : undefined), t2: (st.B ? st.B[1] : undefined), label:'R16: G1 vs B2'},
+            {id:'c-r16-8', t1: (st.H ? st.H[0] : undefined), t2: (st.A ? st.A[1] : undefined), label:'R16: H1 vs A2'},
         ];
         const qf = [
             {id:'c-qf-1', t1: koWinner('c-r16-1',r16[0].t1,r16[0].t2), t2: koWinner('c-r16-5',r16[4].t1,r16[4].t2), label:'QF 1'},
@@ -877,14 +877,14 @@ function renderBracket() {
     } else if (comp === 'shield') {
         // R16 losers + 3rd place teams. Seed: loser of R16 match vs 3rd place (different group)
         const r16losers = [
-            {id:'c-r16-1', t1:st.A?.[0], t2:st.H?.[1]}, // loser avoids A & H
-            {id:'c-r16-2', t1:st.B?.[0], t2:st.G?.[1]},
-            {id:'c-r16-3', t1:st.C?.[0], t2:st.F?.[1]},
-            {id:'c-r16-4', t1:st.D?.[0], t2:st.E?.[1]},
-            {id:'c-r16-5', t1:st.E?.[0], t2:st.D?.[1]},
-            {id:'c-r16-6', t1:st.F?.[0], t2:st.C?.[1]},
-            {id:'c-r16-7', t1:st.G?.[0], t2:st.B?.[1]},
-            {id:'c-r16-8', t1:st.H?.[0], t2:st.A?.[1]},
+            {id:'c-r16-1', t1:(st.A ? st.A[0] : undefined), t2:(st.H ? st.H[1] : undefined)}, // loser avoids A & H
+            {id:'c-r16-2', t1:(st.B ? st.B[0] : undefined), t2:(st.G ? st.G[1] : undefined)},
+            {id:'c-r16-3', t1:(st.C ? st.C[0] : undefined), t2:(st.F ? st.F[1] : undefined)},
+            {id:'c-r16-4', t1:(st.D ? st.D[0] : undefined), t2:(st.E ? st.E[1] : undefined)},
+            {id:'c-r16-5', t1:(st.E ? st.E[0] : undefined), t2:(st.D ? st.D[1] : undefined)},
+            {id:'c-r16-6', t1:(st.F ? st.F[0] : undefined), t2:(st.C ? st.C[1] : undefined)},
+            {id:'c-r16-7', t1:(st.G ? st.G[0] : undefined), t2:(st.B ? st.B[1] : undefined)},
+            {id:'c-r16-8', t1:(st.H ? st.H[0] : undefined), t2:(st.A ? st.A[1] : undefined)},
         ];
         function loser(m) {
             const w = koWinner(m.id, m.t1, m.t2);
@@ -893,14 +893,14 @@ function renderBracket() {
         }
         // Pair losers vs 3rd place avoiding same group
         const r1 = [
-            {id:'s-r1-1', t1: loser(r16losers[0]), t2: st.B?.[2], label:'R1: Loser(AH) vs B3'},
-            {id:'s-r1-2', t1: loser(r16losers[1]), t2: st.A?.[2], label:'R1: Loser(BG) vs A3'},
-            {id:'s-r1-3', t1: loser(r16losers[2]), t2: st.D?.[2], label:'R1: Loser(CF) vs D3'},
-            {id:'s-r1-4', t1: loser(r16losers[3]), t2: st.C?.[2], label:'R1: Loser(DE) vs C3'},
-            {id:'s-r1-5', t1: loser(r16losers[4]), t2: st.F?.[2], label:'R1: Loser(ED) vs F3'},
-            {id:'s-r1-6', t1: loser(r16losers[5]), t2: st.E?.[2], label:'R1: Loser(FC) vs E3'},
-            {id:'s-r1-7', t1: loser(r16losers[6]), t2: st.H?.[2], label:'R1: Loser(GB) vs H3'},
-            {id:'s-r1-8', t1: loser(r16losers[7]), t2: st.G?.[2], label:'R1: Loser(HA) vs G3'},
+            {id:'s-r1-1', t1: loser(r16losers[0]), t2: (st.B ? st.B[2] : undefined), label:'R1: Loser(AH) vs B3'},
+            {id:'s-r1-2', t1: loser(r16losers[1]), t2: (st.A ? st.A[2] : undefined), label:'R1: Loser(BG) vs A3'},
+            {id:'s-r1-3', t1: loser(r16losers[2]), t2: (st.D ? st.D[2] : undefined), label:'R1: Loser(CF) vs D3'},
+            {id:'s-r1-4', t1: loser(r16losers[3]), t2: (st.C ? st.C[2] : undefined), label:'R1: Loser(DE) vs C3'},
+            {id:'s-r1-5', t1: loser(r16losers[4]), t2: (st.F ? st.F[2] : undefined), label:'R1: Loser(ED) vs F3'},
+            {id:'s-r1-6', t1: loser(r16losers[5]), t2: (st.E ? st.E[2] : undefined), label:'R1: Loser(FC) vs E3'},
+            {id:'s-r1-7', t1: loser(r16losers[6]), t2: (st.H ? st.H[2] : undefined), label:'R1: Loser(GB) vs H3'},
+            {id:'s-r1-8', t1: loser(r16losers[7]), t2: (st.G ? st.G[2] : undefined), label:'R1: Loser(HA) vs G3'},
         ];
         const sqf = [
             {id:'s-qf-1', t1: koWinner('s-r1-1',r1[0].t1,r1[0].t2), t2: koWinner('s-r1-5',r1[4].t1,r1[4].t2), label:'QF 1'},
@@ -923,10 +923,10 @@ function renderBracket() {
     } else if (comp === 'plate') {
         // 4th place teams: A4, B4, C4, D4, E4, F4, G4, H4
         const pr1 = [
-            {id:'p-r1-1', t1: st.A?.[3], t2: st.E?.[3], label:'R1: A4 vs E4'},
-            {id:'p-r1-2', t1: st.B?.[3], t2: st.F?.[3], label:'R1: B4 vs F4'},
-            {id:'p-r1-3', t1: st.C?.[3], t2: st.G?.[3], label:'R1: C4 vs G4'},
-            {id:'p-r1-4', t1: st.D?.[3], t2: st.H?.[3], label:'R1: D4 vs H4'},
+            {id:'p-r1-1', t1: (st.A ? st.A[3] : undefined), t2: (st.E ? st.E[3] : undefined), label:'R1: A4 vs E4'},
+            {id:'p-r1-2', t1: (st.B ? st.B[3] : undefined), t2: (st.F ? st.F[3] : undefined), label:'R1: B4 vs F4'},
+            {id:'p-r1-3', t1: (st.C ? st.C[3] : undefined), t2: (st.G ? st.G[3] : undefined), label:'R1: C4 vs G4'},
+            {id:'p-r1-4', t1: (st.D ? st.D[3] : undefined), t2: (st.H ? st.H[3] : undefined), label:'R1: D4 vs H4'},
         ];
         const psf = [
             {id:'p-sf-1', t1: koWinner('p-r1-1',pr1[0].t1,pr1[0].t2), t2: koWinner('p-r1-2',pr1[1].t1,pr1[1].t2), label:'SF 1'},
@@ -1069,10 +1069,10 @@ setInterval(() => {
         refreshData().then(() => {
             updateConfirmBadge();
             const active = document.querySelector('.section.active');
-            if (active?.id === 'confirm')     renderConfirmList();
-            if (active?.id === 'leaderboard') renderLeaderboard();
-            if (active?.id === 'organizer')   renderOrganizerDashboard();
-            if (active?.id === 'score-entry') renderMyResults();
+            if (active && active.id === 'confirm')     renderConfirmList();
+            if (active && active.id === 'leaderboard') renderLeaderboard();
+            if (active && active.id === 'organizer')   renderOrganizerDashboard();
+            if (active && active.id === 'score-entry') renderMyResults();
         });
     }
 }, 30000);
