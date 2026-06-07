@@ -7,7 +7,6 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
-        body { display: flex; flex-direction: column; min-height: 100vh; }
 
         :root { --royal: #274296; --royal-dark: #1d3278; --royal-light: #3356b8; }
 
@@ -22,7 +21,7 @@
         .tab-btn { padding: 9px 13px; background: #f0f4ff; color: #444; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0; display: block; width: auto; margin-top: 0; text-transform: uppercase; letter-spacing: 0.5px; }
         .tab-btn.active { background: var(--royal); color: white; }
 
-        .content { flex: 1; overflow-y: auto; padding: 10px; min-height: 0; }
+        .content { padding: 10px; }
         .section { display: none; }
         .section.active { display: block; }
 
@@ -263,10 +262,6 @@
 </div>
 
 <script>
-window.onerror = function(msg, src, line, col, err) {
-    document.body.innerHTML = '<div style="padding:20px;font-family:sans-serif;"><h2 style="color:red">JS Error</h2><p>' + msg + '</p><p>Line: ' + line + '</p><p>' + (err ? err.stack : '') + '</p></div>';
-    return false;
-};
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const API_URL = 'https://script.google.com/macros/s/AKfycbyubQx7dYI--e8UEyfz_rQ0mayLE1GxHZE3acWmKGj84g0nXKqqBu3uRSOlJDwUgJzX/exec';
 
