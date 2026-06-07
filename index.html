@@ -146,16 +146,30 @@
                 <div style="background:#f0f5ff;padding:12px;border-radius:6px;margin-bottom:12px;border-left:4px solid var(--royal);font-weight:600;" id="matchInfo"></div>
                 <div class="form-group"><label>Your Score</label><input type="number" id="team1Score" value="0" min="0" max="99"></div>
                 <div class="form-group">
-                    <label>Goalscorers</label>
+                    <label>Your Goalscorers <span style="font-weight:400;color:#888;">(optional)</span></label>
                     <div style="background:#f9f9f9;padding:12px;border-radius:6px;">
                         <div style="display:flex;gap:8px;margin-bottom:8px;">
-                            <select id="scorerSelect" style="flex:1;margin-bottom:0;"><option value="">-- Player --</option></select>
+                            <select id="scorerSelect" style="flex:1;margin-bottom:0;"><option value="">-- From roster --</option></select>
                             <button onclick="addScorer()" style="width:auto;padding:8px 14px;margin-top:0;font-size:14px;">+</button>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-bottom:8px;">
+                            <input type="text" id="scorerText" placeholder="Or type a name" style="flex:1;margin-bottom:0;">
+                            <button onclick="addScorerText()" style="width:auto;padding:8px 14px;margin-top:0;font-size:14px;">+</button>
                         </div>
                         <div id="scorersList"></div>
                     </div>
                 </div>
                 <div class="form-group"><label>Opponent Score</label><input type="number" id="oppScore" value="0" min="0" max="99"></div>
+                <div class="form-group">
+                    <label>Opponent Goalscorers <span style="font-weight:400;color:#888;">(optional)</span></label>
+                    <div style="background:#f9f9f9;padding:12px;border-radius:6px;">
+                        <div style="display:flex;gap:8px;margin-bottom:8px;">
+                            <input type="text" id="oppScorerText" placeholder="Type opponent scorer name" style="flex:1;margin-bottom:0;">
+                            <button onclick="addOppScorer()" style="width:auto;padding:8px 14px;margin-top:0;font-size:14px;">+</button>
+                        </div>
+                        <div id="oppScorersList"></div>
+                    </div>
+                </div>
                 <button onclick="submitScore()" class="success" id="submitScoreBtn">✓ Submit Score</button>
                 <div id="scoreMsg" style="margin-top:8px;"></div>
             </div>
@@ -295,6 +309,7 @@ const codes = {
 let currentTeam = localStorage.getItem('cc_team') || '';
 let isOrganizer = false;
 let currentScorers = {};  // { playerName: goalCount }
+let oppScorers = {};
 let allScores = [];       // loaded from Google Sheets
 let allRosters = {};      // loaded from Google Sheets
 
@@ -477,8 +492,10 @@ function loadMatch() {
     document.getElementById('team1Score').value = '0';
     document.getElementById('oppScore').value   = '0';
     document.getElementById('scorersList').innerHTML = '';
+    document.getElementById('oppScorersList').innerHTML = '';
     document.getElementById('scoreMsg').innerHTML = '';
     currentScorers = {};
+    oppScorers = {};
 
     // Populate scorers from local roster (fallback to Sheets roster)
     const local  = JSON.parse(localStorage.getItem(`cc_roster_${currentTeam}`) || '[]');
@@ -499,15 +516,47 @@ function addScorer() {
     renderScorersList();
 }
 
+function addScorerText() {
+    const inp = document.getElementById('scorerText');
+    const player = inp.value.trim();
+    if (!player) return;
+    currentScorers[player] = (currentScorers[player] || 0) + 1;
+    inp.value = '';
+    renderScorersList();
+}
+
+function addOppScorer() {
+    const inp = document.getElementById('oppScorerText');
+    const player = inp.value.trim();
+    if (!player) return;
+    oppScorers[player] = (oppScorers[player] || 0) + 1;
+    inp.value = '';
+    renderOppScorersList();
+}
+
 function removeScorer(player) {
     if (currentScorers[player] > 1) currentScorers[player]--;
     else delete currentScorers[player];
     renderScorersList();
 }
 
+function removeOppScorer(player) {
+    if (oppScorers[player] > 1) oppScorers[player]--;
+    else delete oppScorers[player];
+    renderOppScorersList();
+}
+
 function renderScorersList() {
     document.getElementById('scorersList').innerHTML = Object.entries(currentScorers).map(([p, n]) =>
         `<span class="player-badge" onclick="removeScorer('${p.replace(/'/g,"\\'")}')">
+            ${p}${n > 1 ? ` ×${n}` : ''} ✕
+        </span>`
+    ).join('');
+}
+
+function renderOppScorersList() {
+    document.getElementById('oppScorersList').innerHTML = Object.entries(oppScorers).map(([p, n]) =>
+        `<span class="player-badge" style="background:#fde8e8;color:#8b1a1a;" onclick="removeOppScorer('${p.replace(/'/g,"\\'")}')">
             ${p}${n > 1 ? ` ×${n}` : ''} ✕
         </span>`
     ).join('');
@@ -519,16 +568,11 @@ async function submitScore() {
     const score2 = parseInt(document.getElementById('oppScore').value)   || 0;
     if (!opp) { showAlert('scoreMsg', 'Choose an opponent.', 'error'); return; }
 
-    const totalGoals = Object.values(currentScorers).reduce((a,b) => a+b, 0);
-    if (score1 > 0 && totalGoals === 0) {
-        showAlert('scoreMsg', `You scored ${score1} goal(s) — add the scorer(s) above.`, 'error'); return;
-    }
-    if (totalGoals !== score1) {
-        showAlert('scoreMsg', `${totalGoals} scorer(s) recorded but ${score1} goals entered — they must match.`, 'error'); return;
-    }
-
     const scorersArray = [];
     Object.entries(currentScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) scorersArray.push(p); });
+
+    const oppScorersArray = [];
+    Object.entries(oppScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) oppScorersArray.push(p); });
 
     const myGroup = (Object.entries(groups).find(([, teams]) => teams.includes(currentTeam)) || [])[0] || '';
 
@@ -540,7 +584,7 @@ async function submitScore() {
         const res = await apiPost({
             action: 'submitScore',
             group: myGroup, team1: currentTeam, team2: opp,
-            score1, score2, scorers: scorersArray, submittedBy: currentTeam
+            score1, score2, scorers: scorersArray, scorers2: oppScorersArray, submittedBy: currentTeam
         });
         if (res.error) {
             showAlert('scoreMsg', res.error, 'error');

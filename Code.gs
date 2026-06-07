@@ -45,7 +45,7 @@ function getScores() {
 
 function submitScore(data) {
   var sheet = getOrCreateSheet('Scores', [
-    'id','group','team1','team2','score1','score2','scorers','submittedBy','status','timestamp'
+    'id','group','team1','team2','score1','score2','scorers','scorers2','submittedBy','status','timestamp'
   ]);
   var existing = getScores().filter(function(s) {
     return ((s.team1 === data.team1 && s.team2 === data.team2) ||
@@ -58,6 +58,7 @@ function submitScore(data) {
     id, data.group, data.team1, data.team2,
     Number(data.score1), Number(data.score2),
     JSON.stringify(data.scorers || []),
+    JSON.stringify(data.scorers2 || []),
     data.submittedBy, 'pending', new Date().toISOString()
   ]);
   return { success: true, id: id };
