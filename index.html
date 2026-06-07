@@ -263,6 +263,10 @@
 </div>
 
 <script>
+window.onerror = function(msg, src, line, col, err) {
+    document.body.innerHTML = '<div style="padding:20px;font-family:sans-serif;"><h2 style="color:red">JS Error</h2><p>' + msg + '</p><p>Line: ' + line + '</p><p>' + (err ? err.stack : '') + '</p></div>';
+    return false;
+};
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const API_URL = 'https://script.google.com/macros/s/AKfycbyubQx7dYI--e8UEyfz_rQ0mayLE1GxHZE3acWmKGj84g0nXKqqBu3uRSOlJDwUgJzX/exec';
 
