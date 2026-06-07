@@ -727,7 +727,7 @@ function calcStandings(group, teams, confirmed) {
 function renderTopScorers(elId, confirmed) {
     const tally = {};
     confirmed.forEach(s => {
-        const scorers = Array.isArray(s.scorers) ? s.scorers : [];
+        const scorers = (Array.isArray(s.scorers) ? s.scorers : []).concat(Array.isArray(s.scorers2) ? s.scorers2 : []);
         scorers.forEach(p => { tally[p] = (tally[p]||0) + 1; });
     });
     const top = Object.entries(tally).sort((a,b) => b[1]-a[1]).slice(0,10);
@@ -742,12 +742,14 @@ function renderOrganizerDashboard() {
     if (!allScores.length) { el.innerHTML = '<div class="no-data">No scores submitted.</div>'; }
     else el.innerHTML = allScores.map(s => {
         const scorers = Array.isArray(s.scorers) ? s.scorers : [];
+        const scorers2 = Array.isArray(s.scorers2) ? s.scorers2 : [];
         return `<div class="score-item ${s.status}">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                 <div>
                     <strong>${s.group}: ${s.team1} ${s.score1}–${s.score2} ${s.team2}</strong>
                     <span class="status-badge status-${s.status}" style="margin-left:6px;">${s.status}</span>
-                    ${scorers.length ? `<small style="display:block;color:#666;margin-top:4px;">Scorers: ${scorers.join(', ')}</small>` : ''}
+                    ${scorers.length ? `<small style="display:block;color:#666;margin-top:4px;">${s.team1}: ${scorers.join(', ')}</small>` : ''}
+                    ${scorers2.length ? `<small style="display:block;color:#666;margin-top:2px;">${s.team2}: ${scorers2.join(', ')}</small>` : ''}
                     <small style="display:block;color:#aaa;font-size:11px;">Submitted by ${s.submittedBy}</small>
                 </div>
                 <button onclick="openEditScore('${s.id}','${s.team1.replace(/'/g,"\\'")}','${s.team2.replace(/'/g,"\\'")}',${s.score1},${s.score2})" style="width:auto;padding:4px 10px;font-size:11px;margin-top:0;flex-shrink:0;">Edit</button>
