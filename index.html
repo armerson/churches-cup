@@ -304,7 +304,7 @@ const groups = {
 };
 
 // 4-digit login codes per team (share privately with each team manager)
-const codes = {
+let codes = {
     "1234":"admin",
     "0001":"Covenant","0002":"Mourne","0003":"Spain Madrid","0004":"Warringstown Presbyterian Church",
     "0005":"Bethany FC","0006":"Ballymagerney FPC","0007":"YAKAAR ACADEMY","0008":"Sloan Street Presbyterian",
@@ -326,6 +326,14 @@ let allRosters = {};      // loaded from Google Sheets
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
+    // Load server PINs and merge over hardcoded defaults
+    try {
+        const serverPins = await apiGet('getPins');
+        if (serverPins && typeof serverPins === 'object') {
+            Object.assign(codes, serverPins);
+        }
+    } catch(e) { /* fall back to hardcoded codes */ }
+
     // Populate team dropdown
     const sel = document.getElementById('setupTeam');
     Object.values(groups).flat().forEach(t => sel.appendChild(new Option(t, t)));
@@ -379,7 +387,7 @@ function logout() {
     location.reload();
 }
 
-function changePin() {
+async function changePin() {
     const current = document.getElementById('changePinCurrent').value;
     const newPin  = document.getElementById('changePinNew').value;
     const confirm = document.getElementById('changePinConfirm').value;
@@ -395,13 +403,22 @@ function changePin() {
         showAlert('changePinMsg', 'New PINs do not match.', 'error');
         return;
     }
-    // Remove old PIN entry and add new one
-    delete codes[current];
-    codes[newPin] = currentTeam;
-    document.getElementById('changePinCurrent').value = '';
-    document.getElementById('changePinNew').value = '';
-    document.getElementById('changePinConfirm').value = '';
-    showAlert('changePinMsg', '✓ PIN updated! Remember your new code: ' + newPin, 'success');
+    const btn = document.querySelector('[onclick="changePin()"]');
+    btn.innerHTML = '<span class="spinner"></span>Saving…';
+    btn.disabled = true;
+    try {
+        await apiPost({ action: 'updatePin', team: currentTeam, newPin });
+        delete codes[current];
+        codes[newPin] = currentTeam;
+        document.getElementById('changePinCurrent').value = '';
+        document.getElementById('changePinNew').value = '';
+        document.getElementById('changePinConfirm').value = '';
+        showAlert('changePinMsg', '✓ PIN saved! Your new code is: ' + newPin, 'success');
+    } catch(e) {
+        showAlert('changePinMsg', 'Failed to save — check connection.', 'error');
+    }
+    btn.textContent = '↳ Change PIN';
+    btn.disabled = false;
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────

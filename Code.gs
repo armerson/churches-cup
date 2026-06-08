@@ -6,6 +6,7 @@ function doGet(e) {
   if (action === 'getScores')       result = getScores();
   else if (action === 'getRosters') result = getRosters();
   else if (action === 'getKO')      result = getKOMatches();
+  else if (action === 'getPins')    result = getPins();
   else                              result = { error: 'Unknown action' };
   return toJson(result);
 }
@@ -17,7 +18,8 @@ function doPost(e) {
   else if (data.action === 'updateStatus') result = updateStatus(data);
   else if (data.action === 'saveRoster')   result = saveRoster(data);
   else if (data.action === 'saveKO')       result = saveKOMatch(data);
-  else if (data.action === 'editScore')   result = editScore(data);
+  else if (data.action === 'editScore')    result = editScore(data);
+  else if (data.action === 'updatePin')    result = updatePin(data);
   else                                     result = { error: 'Unknown action' };
   return toJson(result);
 }
@@ -45,7 +47,7 @@ function getScores() {
 
 function submitScore(data) {
   var sheet = getOrCreateSheet('Scores', [
-    'id','group','team1','team2','score1','score2','scorers','scorers2','submittedBy','status','timestamp'
+    'id','group','team1','team2','score1','score2','scorers','submittedBy','status','timestamp'
   ]);
   var existing = getScores().filter(function(s) {
     return ((s.team1 === data.team1 && s.team2 === data.team2) ||
@@ -58,9 +60,20 @@ function submitScore(data) {
     id, data.group, data.team1, data.team2,
     Number(data.score1), Number(data.score2),
     JSON.stringify(data.scorers || []),
-    JSON.stringify(data.scorers2 || []),
     data.submittedBy, 'pending', new Date().toISOString()
   ]);
+  // Save opposition scorers if provided, using dynamic column (safe for existing sheets)
+  if (data.scorers2 && data.scorers2.length > 0) {
+    var rows = sheet.getDataRange().getValues();
+    var headers = rows[0];
+    function ensureColS(name) {
+      var idx = headers.indexOf(name);
+      if (idx === -1) { idx = headers.length; headers.push(name); sheet.getRange(1, idx+1).setValue(name); }
+      return idx;
+    }
+    var s2c = ensureColS('scorers2');
+    sheet.getRange(rows.length, s2c+1).setValue(JSON.stringify(data.scorers2));
+  }
   return { success: true, id: id };
 }
 
@@ -197,6 +210,33 @@ function saveRoster(data) {
     }
   }
   sheet.appendRow([data.team].concat(players));
+  return { success: true };
+}
+
+// ---------- PINs ----------
+
+function getPins() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Pins');
+  if (!sheet) return {};
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length < 2) return {};
+  var result = {};
+  rows.slice(1).forEach(function(row) {
+    if (row[0] && row[1]) result[String(row[1])] = String(row[0]);
+  });
+  return result;
+}
+
+function updatePin(data) {
+  var sheet = getOrCreateSheet('Pins', ['team', 'pin']);
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(data.team)) {
+      sheet.getRange(i+1, 2).setValue(String(data.newPin));
+      return { success: true };
+    }
+  }
+  sheet.appendRow([data.team, String(data.newPin)]);
   return { success: true };
 }
 
