@@ -127,6 +127,10 @@
 
     <!-- SETUP -->
     <div id="setup" class="section active">
+        <div class="card" style="text-align:center;padding:20px 16px;">
+            <button onclick="enterPlayerView()" style="width:100%;padding:14px;font-size:16px;font-weight:700;background:#274296;color:white;border:none;border-radius:8px;cursor:pointer;margin-bottom:8px;">👁 Player View</button>
+            <div style="font-size:12px;color:#888;">View standings, knockout bracket &amp; rules</div>
+        </div>
         <div class="card">
             <h2>Team Login</h2>
             <div class="form-group"><label>Your Team</label><select id="setupTeam"><option value="">-- Select --</option></select></div>
@@ -493,6 +497,7 @@ let codes = {
 // ── STATE (session only — not scores) ─────────────────────────────────────────
 let currentTeam = localStorage.getItem('cc_team') || '';
 let isOrganizer = false;
+let isPlayerView = false;
 let currentScorers = {};  // { playerName: goalCount }
 let oppScorers = {};
 let allScores = [];       // loaded from Google Sheets
@@ -612,6 +617,13 @@ function groupsComplete() {
     return true;
 }
 
+function enterPlayerView() {
+    isPlayerView = true;
+    refreshData();
+    updateUI();
+    showTab('leaderboard', null);
+}
+
 function updateUI() {
     const loggedIn = currentTeam && !isOrganizer;
     ['btnRoster','btnFixtures','btnSubmit','btnConfirm','btnTable','btnKnockout','btnRules'].forEach(function(id) {
@@ -620,6 +632,13 @@ function updateUI() {
         if (loggedIn) el.classList.add('visible');
         else el.classList.remove('visible');
     });
+    // Player view: show only Standings, Knockout, Rules + a back button
+    if (isPlayerView && !loggedIn) {
+        ['btnTable','btnKnockout','btnRules'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.add('visible');
+        });
+    }
     var orgBtn = document.getElementById('btnOrganizer');
     if (orgBtn) {
         if (isOrganizer) orgBtn.classList.add('visible');
@@ -629,6 +648,11 @@ function updateUI() {
     var koBtn = document.getElementById('btnKnockout');
     if (isOrganizer && koBtn) koBtn.classList.add('visible');
 
+    if (isPlayerView && !loggedIn) {
+        document.getElementById('headerTeamBar').innerHTML = '👁 Player View &nbsp;<a onclick="isPlayerView=false;updateUI();showTab(\'setup\',null);" style="color:#fff;text-decoration:underline;cursor:pointer;font-size:11px;">← Back to Login</a>';
+        try { renderLeaderboard(); } catch(e) {}
+        try { renderKnockout(); } catch(e) {}
+    }
     if (loggedIn) {
         document.getElementById('headerTeamBar').textContent = '⚽  Logged in as: ' + currentTeam;
         try { document.getElementById('rosterTeamName').textContent = 'Team: ' + currentTeam; } catch(e) { console.error('rosterTeamName',e); }
