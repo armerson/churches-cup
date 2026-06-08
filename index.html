@@ -93,7 +93,7 @@
 
 <div class="nav-tabs">
     <button class="tab-btn active visible" onclick="showTab('setup',this)">Login</button>
-    <button class="tab-btn" id="btnRoster"    onclick="showTab('roster',this)">Roster</button>
+    <button class="tab-btn" id="btnRoster"    onclick="showTab('roster',this)">Team Sheet</button>
     <button class="tab-btn" id="btnSubmit"    onclick="showTab('score-entry',this)">Report Score</button>
     <button class="tab-btn" id="btnConfirm"   onclick="showTab('confirm',this)">Confirm</button>
     <button class="tab-btn" id="btnTable"     onclick="showTab('leaderboard',this)">Standings</button>
@@ -119,17 +119,28 @@
         </div>
     </div>
 
-    <!-- ROSTER -->
+    <!-- TEAM SHEET -->
     <div id="roster" class="section">
         <div class="card">
-            <h2>Team Roster</h2>
+            <h2>Team Sheet</h2>
             <div id="rosterTeamName" style="font-weight:600;margin-bottom:10px;color:var(--royal);"></div>
             <p style="font-size:13px;color:#666;margin-bottom:12px;">Enter up to 10 players (used for goalscorer selection)</p>
             <div id="rosterInputs"></div>
-            <button onclick="saveRoster()" class="success" id="saveRosterBtn">✓ Save Roster</button>
+            <button onclick="saveRoster()" class="success" id="saveRosterBtn">✓ Save Team Sheet</button>
             <div id="rosterMsg" style="margin-top:8px;"></div>
-            <div id="rosterDisplay" style="display:none;margin-top:15px;"><h3>Saved Roster</h3><div id="rosterList"></div></div>
-            <button onclick="logout()" class="danger" style="margin-top:15px;">← Logout</button>
+            <div id="rosterDisplay" style="display:none;margin-top:15px;"><h3>Saved Players</h3><div id="rosterList"></div></div>
+        </div>
+        <div class="card" style="margin-top:12px;">
+            <h3 style="margin-bottom:10px;">Change PIN</h3>
+            <p style="font-size:13px;color:#666;margin-bottom:10px;">Enter your current 4-digit code to confirm your identity, then set a new one.</p>
+            <div class="form-group"><label>Current PIN</label><input type="text" id="changePinCurrent" class="code-input" maxlength="4" inputmode="numeric" placeholder="0000"></div>
+            <div class="form-group"><label>New PIN</label><input type="text" id="changePinNew" class="code-input" maxlength="4" inputmode="numeric" placeholder="0000"></div>
+            <div class="form-group"><label>Confirm New PIN</label><input type="text" id="changePinConfirm" class="code-input" maxlength="4" inputmode="numeric" placeholder="0000"></div>
+            <button onclick="changePin()" class="secondary">↳ Change PIN</button>
+            <div id="changePinMsg" style="margin-top:8px;"></div>
+        </div>
+        <div class="card" style="margin-top:12px;">
+            <button onclick="logout()" class="danger" style="width:100%;">← Logout</button>
         </div>
     </div>
 
@@ -366,6 +377,31 @@ function logout() {
     isOrganizer = false;
     localStorage.removeItem('cc_team');
     location.reload();
+}
+
+function changePin() {
+    const current = document.getElementById('changePinCurrent').value;
+    const newPin  = document.getElementById('changePinNew').value;
+    const confirm = document.getElementById('changePinConfirm').value;
+    if (codes[current] !== currentTeam) {
+        showAlert('changePinMsg', 'Current PIN is incorrect.', 'error');
+        return;
+    }
+    if (!/^\d{4}$/.test(newPin)) {
+        showAlert('changePinMsg', 'New PIN must be exactly 4 digits.', 'error');
+        return;
+    }
+    if (newPin !== confirm) {
+        showAlert('changePinMsg', 'New PINs do not match.', 'error');
+        return;
+    }
+    // Remove old PIN entry and add new one
+    delete codes[current];
+    codes[newPin] = currentTeam;
+    document.getElementById('changePinCurrent').value = '';
+    document.getElementById('changePinNew').value = '';
+    document.getElementById('changePinConfirm').value = '';
+    showAlert('changePinMsg', '✓ PIN updated! Remember your new code: ' + newPin, 'success');
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
