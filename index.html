@@ -404,8 +404,8 @@ const koSchedule = {
     "c-qf-1":"14:30","c-qf-2":"14:30","c-qf-3":"14:30","c-qf-4":"14:30",
     "s-qf-1":"14:42","s-qf-2":"14:42","s-qf-3":"14:42","s-qf-4":"14:42",
     "c-sf-1":"14:54","c-sf-2":"14:54","p-sf-1":"14:54","p-sf-2":"14:54",
-    "c-final":"15:06","p-final":"15:06","s-sf-1":"15:06","s-sf-2":"15:06",
-    "s-final":"15:18",
+    "s-sf-1":"15:06","s-sf-2":"15:06",
+    "c-final":"15:18","p-final":"15:18","s-final":"15:18",
 };
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
@@ -1304,7 +1304,7 @@ const koPitchAssignment = {
     'c-qf-1':'white',  'c-qf-2':'blue',
     'c-qf-3':'yellow', 'c-qf-4':'red',
     'c-sf-1':'white',  'c-sf-2':'blue',
-    'c-final':'white',
+    'c-final':'white',                    // 15:18 Finals: c=white, s=yellow, p=blue
     // Shield
     's-r1-1':'white',  's-r1-2':'white',
     's-r1-3':'blue',   's-r1-4':'blue',
@@ -1312,13 +1312,13 @@ const koPitchAssignment = {
     's-r1-7':'red',    's-r1-8':'red',
     's-qf-1':'white',  's-qf-2':'blue',
     's-qf-3':'yellow', 's-qf-4':'red',
-    's-sf-1':'blue',   's-sf-2':'yellow', // Slot 9: c-final=white, s-sf-1=blue, s-sf-2=yellow, p-final=red
-    's-final':'yellow',
+    's-sf-1':'white',  's-sf-2':'blue',  // 15:06: white + blue (2 games only)
+    's-final':'yellow',                   // 15:18 Finals: c=white, s=yellow, p=blue
     // Plate (8 teams — starts at QF, no R1)
     'p-r1-1':'white',  'p-r1-2':'blue',
     'p-r1-3':'yellow', 'p-r1-4':'red',
-    'p-sf-1':'yellow', 'p-sf-2':'red',   // Slot: yellow + red (Shield uses white + blue)
-    'p-final':'red',
+    'p-sf-1':'yellow', 'p-sf-2':'red',   // 14:54: yellow + red (alongside c-sf white+blue)
+    'p-final':'blue',                     // 15:18 Finals: c=white, s=yellow, p=blue
 };
 
 const pitchStyles = {
