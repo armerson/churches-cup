@@ -3,24 +3,26 @@
 function doGet(e) {
   var action = e.parameter.action;
   var result;
-  if (action === 'getScores')       result = getScores();
-  else if (action === 'getRosters') result = getRosters();
-  else if (action === 'getKO')      result = getKOMatches();
-  else if (action === 'getPins')    result = getPins();
-  else                              result = { error: 'Unknown action' };
+  if (action === 'getScores')        result = getScores();
+  else if (action === 'getRosters')  result = getRosters();
+  else if (action === 'getKO')       result = getKOMatches();
+  else if (action === 'getPins')     result = getPins();
+  else if (action === 'getSchedule') result = getSchedule();
+  else                               result = { error: 'Unknown action' };
   return toJson(result);
 }
 
 function doPost(e) {
   var data = JSON.parse(e.postData.contents);
   var result;
-  if (data.action === 'submitScore')       result = submitScore(data);
-  else if (data.action === 'updateStatus') result = updateStatus(data);
-  else if (data.action === 'saveRoster')   result = saveRoster(data);
-  else if (data.action === 'saveKO')       result = saveKOMatch(data);
-  else if (data.action === 'editScore')    result = editScore(data);
-  else if (data.action === 'updatePin')    result = updatePin(data);
-  else                                     result = { error: 'Unknown action' };
+  if (data.action === 'submitScore')        result = submitScore(data);
+  else if (data.action === 'updateStatus')  result = updateStatus(data);
+  else if (data.action === 'saveRoster')    result = saveRoster(data);
+  else if (data.action === 'saveKO')        result = saveKOMatch(data);
+  else if (data.action === 'editScore')     result = editScore(data);
+  else if (data.action === 'updatePin')     result = updatePin(data);
+  else if (data.action === 'setFixtureTime') result = setFixtureTime(data);
+  else                                      result = { error: 'Unknown action' };
   return toJson(result);
 }
 
@@ -210,6 +212,39 @@ function saveRoster(data) {
     }
   }
   sheet.appendRow([data.team].concat(players));
+  return { success: true };
+}
+
+// ---------- Schedule / Fixture Times ----------
+// Sheet columns: matchKey (sorted team1||team2), time, pitch, notes
+
+function getSchedule() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Schedule');
+  if (!sheet) return {};
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length < 2) return {};
+  var headers = rows[0];
+  var result = {};
+  rows.slice(1).forEach(function(row) {
+    var obj = {};
+    headers.forEach(function(h, i) { obj[h] = row[i]; });
+    if (obj.matchKey) result[String(obj.matchKey)] = { time: obj.time || '', pitch: obj.pitch || '', notes: obj.notes || '' };
+  });
+  return result;
+}
+
+function setFixtureTime(data) {
+  var sheet = getOrCreateSheet('Schedule', ['matchKey','time','pitch','notes']);
+  var rows = sheet.getDataRange().getValues();
+  var headers = rows[0];
+  var keyCol = headers.indexOf('matchKey');
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][keyCol]) === String(data.matchKey)) {
+      sheet.getRange(i+1, 1, 1, 4).setValues([[data.matchKey, data.time || '', data.pitch || '', data.notes || '']]);
+      return { success: true };
+    }
+  }
+  sheet.appendRow([data.matchKey, data.time || '', data.pitch || '', data.notes || '']);
   return { success: true };
 }
 

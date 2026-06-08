@@ -100,6 +100,7 @@
 <div class="nav-tabs">
     <button class="tab-btn active visible" onclick="showTab('setup',this)">Login</button>
     <button class="tab-btn" id="btnRoster"    onclick="showTab('roster',this)">Team Sheet</button>
+    <button class="tab-btn" id="btnFixtures"  onclick="showTab('fixtures',this)">Fixtures</button>
     <button class="tab-btn" id="btnSubmit"    onclick="showTab('score-entry',this)">Report Score</button>
     <button class="tab-btn" id="btnConfirm"   onclick="showTab('confirm',this)">Confirm</button>
     <button class="tab-btn" id="btnTable"     onclick="showTab('leaderboard',this)">Standings</button>
@@ -218,6 +219,20 @@
         </div>
     </div>
 
+    <!-- FIXTURES -->
+    <div id="fixtures" class="section">
+        <div class="card">
+            <h2>Your Fixtures</h2>
+            <div id="fixturesTeamName" style="font-weight:600;margin-bottom:12px;color:var(--royal);"></div>
+            <div id="fixturesList"><div class="no-data">Loading…</div></div>
+        </div>
+        <div class="card" style="margin-top:12px;">
+            <h2>Knockout Draw</h2>
+            <p style="font-size:12px;color:#888;margin-bottom:10px;">Follow the tournament bracket live.</p>
+            <div id="fixturesKOContent"><div class="no-data">Loading…</div></div>
+        </div>
+    </div>
+
     <!-- LEADERBOARD -->
     <div id="leaderboard" class="section">
         <div class="card">
@@ -290,13 +305,18 @@
     <div id="organizer" class="section">
         <div class="card">
             <h2>Tournament Dashboard</h2>
-            <button onclick="refreshData()" class="secondary" style="margin-bottom:12px;">↻ Refresh</button>
+            <button onclick="refreshData().then(renderOrganizerDashboard)" class="secondary" style="margin-bottom:12px;">↻ Refresh</button>
             <h3>All Results</h3>
             <div id="allResultsContent"><div class="no-data">Loading…</div></div>
             <h3>Group Standings</h3>
             <div id="orgLeaderboardContent"></div>
             <h3>Top Goalscorers</h3>
             <div id="orgTopScorersContent"></div>
+        </div>
+        <div class="card" style="margin-top:12px;">
+            <h2>Set Fixture Times</h2>
+            <p style="font-size:13px;color:#666;margin-bottom:12px;">Set kick-off times for group stage fixtures. Teams will see these in their Fixtures tab.</p>
+            <div id="fixtureTimesEditor"><div class="no-data">Loading…</div></div>
         </div>
     </div>
 
@@ -338,6 +358,7 @@ let currentScorers = {};  // { playerName: goalCount }
 let oppScorers = {};
 let allScores = [];       // loaded from Google Sheets
 let allRosters = {};      // loaded from Google Sheets
+let allSchedule = {};     // { matchKey: { time, pitch } }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
@@ -454,25 +475,19 @@ function groupsComplete() {
 
 function updateUI() {
     const loggedIn = currentTeam && !isOrganizer;
-    ['btnRoster','btnSubmit','btnConfirm','btnTable'].forEach(function(id) {
+    ['btnRoster','btnFixtures','btnSubmit','btnConfirm','btnTable','btnKnockout'].forEach(function(id) {
         var el = document.getElementById(id);
         if (!el) return;
         if (loggedIn) el.classList.add('visible');
         else el.classList.remove('visible');
     });
-    // Knockout tab: show to logged-in teams only once group stage is done
-    var koBtn = document.getElementById('btnKnockout');
-    if (koBtn) {
-        if (loggedIn && groupsComplete()) koBtn.classList.add('visible');
-        else if (!loggedIn) koBtn.classList.remove('visible');
-        // leave visible if already visible for organiser (handled below)
-    }
     var orgBtn = document.getElementById('btnOrganizer');
     if (orgBtn) {
         if (isOrganizer) orgBtn.classList.add('visible');
         else orgBtn.classList.remove('visible');
     }
     // Organiser always sees Knockout tab
+    var koBtn = document.getElementById('btnKnockout');
     if (isOrganizer && koBtn) koBtn.classList.add('visible');
 
     if (loggedIn) {
@@ -486,6 +501,7 @@ function updateUI() {
         try { renderConfirmList(); } catch(e) { console.error('renderConfirmList',e); }
         try { renderMyResults(); } catch(e) { console.error('renderMyResults',e); }
         try { updateConfirmBadge(); } catch(e) { console.error('updateConfirmBadge',e); }
+        try { renderFixtures(); } catch(e) { console.error('renderFixtures',e); }
     }
     if (isOrganizer) try { renderOrganizerDashboard(); } catch(e) { console.error('renderOrganizerDashboard',e); }
 }
@@ -507,15 +523,19 @@ function showTab(name, btn) {
     if (name === 'organizer')   renderOrganizerDashboard();
     if (name === 'score-entry') { loadMyMatches(); renderMyResults(); }
     if (name === 'knockout')    { switchKOTab(currentKOComp); }
+    if (name === 'fixtures')    { renderFixtures(); }
 }
 
 // ── DATA LOADING ──────────────────────────────────────────────────────────────
 async function refreshData() {
     try {
-        const [scores, rosters, ko] = await Promise.all([apiGet('getScores'), apiGet('getRosters'), apiGet('getKO')]);
+        const [scores, rosters, ko, schedule] = await Promise.all([
+            apiGet('getScores'), apiGet('getRosters'), apiGet('getKO'), apiGet('getSchedule')
+        ]);
         allScores  = Array.isArray(scores)  ? scores  : [];
         allRosters = rosters && typeof rosters === 'object' ? rosters : {};
         if (Array.isArray(ko) && !ko.error) allKO = ko;
+        if (schedule && typeof schedule === 'object' && !schedule.error) allSchedule = schedule;
     } catch(e) {
         console.error('Refresh failed:', e);
     }
@@ -936,6 +956,97 @@ function pitchLabel(group) {
     return '';
 }
 
+// ── FIXTURES ──────────────────────────────────────────────────────────────────
+function scheduleKey(t1, t2) {
+    return [t1, t2].sort().join('||');
+}
+
+function renderFixtures() {
+    if (!currentTeam) return;
+    document.getElementById('fixturesTeamName').textContent = currentTeam;
+
+    // --- Group stage fixtures ---
+    const myGroup = Object.entries(groups).find(([, teams]) => teams.includes(currentTeam));
+    let html = '';
+    if (myGroup) {
+        const [groupKey, teammates] = myGroup;
+        const pc = pitchClass(groupKey);
+        const pl = pitchLabel(groupKey);
+        html += `<div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Group ${groupKey} — <span class="pitch-badge ${pc}" style="padding:2px 8px;">${pl}</span></div>`;
+
+        teammates.filter(t => t !== currentTeam).forEach(opp => {
+            const result = allScores.find(s =>
+                ((s.team1 === currentTeam && s.team2 === opp) ||
+                 (s.team1 === opp && s.team2 === currentTeam)) &&
+                (s.status === 'pending' || s.status === 'confirmed')
+            );
+            const key = scheduleKey(currentTeam, opp);
+            const sched = allSchedule[key] || {};
+            const myScore  = result ? (result.team1 === currentTeam ? result.score1 : result.score2) : null;
+            const oppScore = result ? (result.team1 === currentTeam ? result.score2 : result.score1) : null;
+            const statusClass = result ? (result.status === 'confirmed' ? 'confirmed' : 'pending') : '';
+
+            html += `<div class="score-item ${statusClass}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <div style="flex:1;">
+                    <div style="font-weight:600;font-size:14px;">${currentTeam} <span style="color:#888;">vs</span> ${opp}</div>
+                    ${sched.time ? `<div style="font-size:12px;color:#555;margin-top:2px;">⏰ ${sched.time}${sched.pitch ? ' · ' + sched.pitch : ''}</div>` : '<div style="font-size:12px;color:#bbb;margin-top:2px;">Time TBC</div>'}
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    ${result
+                        ? `<span style="font-size:18px;font-weight:700;">${myScore}–${oppScore}</span>
+                           <span class="status-badge status-${result.status}" style="display:block;margin-top:2px;">${result.status}</span>`
+                        : '<span style="font-size:12px;color:#aaa;">Not played</span>'
+                    }
+                </div>
+            </div>`;
+        });
+    }
+    document.getElementById('fixturesList').innerHTML = html || '<div class="no-data">No fixtures found.</div>';
+
+    // --- KO bracket (read-only) ---
+    const koEl = document.getElementById('fixturesKOContent');
+    if (!groupsComplete()) {
+        // Show just the team's group games remaining
+        const remaining = allScores.filter(s =>
+            (s.team1 === currentTeam || s.team2 === currentTeam) && s.status !== 'confirmed'
+        ).length;
+        const total = myGroup ? (myGroup[1].length - 1) : 0;
+        const done  = total - remaining;
+        koEl.innerHTML = `<div style="color:#888;font-size:13px;">⏳ Group stage in progress (${done}/${total} of your games confirmed). Knockout draw will appear here once all groups are complete.</div>`;
+    } else {
+        // Render a compact read-only bracket for the team's matches
+        koEl.innerHTML = renderKOForTeam();
+    }
+}
+
+function renderKOForTeam() {
+    // Build a compact bracket showing only the current team's KO path
+    const st = getGroupStandings();
+    let html = pitchLegend();
+
+    // Championship seedings
+    const r16 = [
+        {id:'c-r16-1', t1:(st.A?st.A[0]:undefined), t2:(st.H?st.H[1]:undefined), label:'R16: A1 vs H2'},
+        {id:'c-r16-2', t1:(st.B?st.B[0]:undefined), t2:(st.G?st.G[1]:undefined), label:'R16: B1 vs G2'},
+        {id:'c-r16-3', t1:(st.C?st.C[0]:undefined), t2:(st.F?st.F[1]:undefined), label:'R16: C1 vs F2'},
+        {id:'c-r16-4', t1:(st.D?st.D[0]:undefined), t2:(st.E?st.E[1]:undefined), label:'R16: D1 vs E2'},
+        {id:'c-r16-5', t1:(st.E?st.E[0]:undefined), t2:(st.D?st.D[1]:undefined), label:'R16: E1 vs D2'},
+        {id:'c-r16-6', t1:(st.F?st.F[0]:undefined), t2:(st.C?st.C[1]:undefined), label:'R16: F1 vs C2'},
+        {id:'c-r16-7', t1:(st.G?st.G[0]:undefined), t2:(st.B?st.B[1]:undefined), label:'R16: G1 vs B2'},
+        {id:'c-r16-8', t1:(st.H?st.H[0]:undefined), t2:(st.A?st.A[1]:undefined), label:'R16: H1 vs A2'},
+    ];
+    // Find which match involves the current team
+    const myMatch = r16.find(m => m.t1 === currentTeam || m.t2 === currentTeam);
+    if (myMatch) {
+        html += `<div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">YOUR NEXT FIXTURE</div>`;
+        html += matchCard(myMatch.id, myMatch.t1, myMatch.t2, myMatch.label);
+    }
+
+    // Show full bracket summary
+    html += `<div style="margin-top:12px;font-size:12px;color:#888;">Full bracket is in the <strong>Knockout</strong> tab.</div>`;
+    return html;
+}
+
 function renderLeaderboard() {
     const confirmed = allScores.filter(s => s.status === 'confirmed');
     let html = '';
@@ -1025,6 +1136,52 @@ function renderOrganizerDashboard() {
     }
     document.getElementById('orgLeaderboardContent').innerHTML = lbHtml;
     renderTopScorers('orgTopScorersContent', confirmed);
+    renderFixtureTimesEditor();
+}
+
+function renderFixtureTimesEditor() {
+    const el = document.getElementById('fixtureTimesEditor');
+    if (!el) return;
+    let html = '';
+    for (const [group, teams] of Object.entries(groups)) {
+        const pc = pitchClass(group);
+        const pl = pitchLabel(group);
+        html += `<div style="margin-bottom:16px;">
+            <div class="group-header ${pc}" style="margin-bottom:8px;">Group ${group} <span class="pitch-badge" style="background:rgba(0,0,0,0.15);">${pl}</span></div>`;
+        // All combinations
+        for (let i = 0; i < teams.length; i++) {
+            for (let j = i+1; j < teams.length; j++) {
+                const t1 = teams[i], t2 = teams[j];
+                const key = scheduleKey(t1, t2);
+                const sched = allSchedule[key] || {};
+                html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
+                    <span style="flex:1;min-width:120px;font-size:13px;font-weight:500;">${t1} vs ${t2}</span>
+                    <input type="time" id="time-${key}" value="${sched.time||''}" style="width:100px;padding:4px;font-size:13px;">
+                    <input type="text" id="pitch-${key}" value="${sched.pitch||pl}" placeholder="Pitch" style="width:110px;padding:4px;font-size:13px;">
+                    <button onclick="saveFixtureTime('${key.replace(/'/g,"\\'")}','${group}')" style="width:auto;padding:4px 10px;font-size:12px;margin-top:0;">Save</button>
+                    <span id="ftime-msg-${key}" style="font-size:11px;color:green;"></span>
+                </div>`;
+            }
+        }
+        html += '</div>';
+    }
+    el.innerHTML = html;
+}
+
+async function saveFixtureTime(key, group) {
+    const time  = document.getElementById('time-' + key).value;
+    const pitch = document.getElementById('pitch-' + key).value;
+    const msg   = document.getElementById('ftime-msg-' + key);
+    msg.textContent = 'Saving…';
+    try {
+        await apiPost({ action: 'setFixtureTime', matchKey: key, time, pitch });
+        allSchedule[key] = { time, pitch };
+        msg.textContent = '✓ Saved';
+        setTimeout(() => { msg.textContent = ''; }, 2000);
+        renderFixtures(); // update team view too
+    } catch(e) {
+        msg.textContent = 'Failed';
+    }
 }
 
 // ── KNOCKOUT ──────────────────────────────────────────────────────────────────
