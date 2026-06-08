@@ -1,9 +1,9 @@
 // Churches Cup 2026 - Service Worker
-const CACHE = 'churches-cup-v1';
+const CACHE = 'churches-cup-v2';
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(['/', '/index.html', '/logo.png', '/manifest.json']))
+    caches.open(CACHE).then(c => c.addAll(['/', '/index.html', '/logo.png', '/logo-app.png', '/manifest.json']))
   );
   self.skipWaiting();
 });
