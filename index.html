@@ -437,19 +437,43 @@ async function changePin() {
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
+
+// Returns true when every group has all its round-robin fixtures confirmed
+function groupsComplete() {
+    const confirmed = allScores.filter(s => s.status === 'confirmed');
+    for (const [group, teams] of Object.entries(groups)) {
+        // n teams → n*(n-1)/2 games needed
+        const needed = teams.length * (teams.length - 1) / 2;
+        const done = confirmed.filter(s =>
+            teams.includes(s.team1) && teams.includes(s.team2)
+        ).length;
+        if (done < needed) return false;
+    }
+    return true;
+}
+
 function updateUI() {
     const loggedIn = currentTeam && !isOrganizer;
-    ['btnRoster','btnSubmit','btnConfirm','btnTable','btnKnockout'].forEach(function(id) {
+    ['btnRoster','btnSubmit','btnConfirm','btnTable'].forEach(function(id) {
         var el = document.getElementById(id);
         if (!el) return;
         if (loggedIn) el.classList.add('visible');
         else el.classList.remove('visible');
     });
+    // Knockout tab: show to logged-in teams only once group stage is done
+    var koBtn = document.getElementById('btnKnockout');
+    if (koBtn) {
+        if (loggedIn && groupsComplete()) koBtn.classList.add('visible');
+        else if (!loggedIn) koBtn.classList.remove('visible');
+        // leave visible if already visible for organiser (handled below)
+    }
     var orgBtn = document.getElementById('btnOrganizer');
     if (orgBtn) {
         if (isOrganizer) orgBtn.classList.add('visible');
         else orgBtn.classList.remove('visible');
     }
+    // Organiser always sees Knockout tab
+    if (isOrganizer && koBtn) koBtn.classList.add('visible');
 
     if (loggedIn) {
         document.getElementById('headerTeamBar').textContent = '⚽  Logged in as: ' + currentTeam;
@@ -1074,10 +1098,29 @@ function matchCard(matchId, t1, t2, label) {
     </div>`;
 }
 
+function groupProgressBanner() {
+    const confirmed = allScores.filter(s => s.status === 'confirmed');
+    let totalNeeded = 0, totalDone = 0;
+    const incomplete = [];
+    for (const [group, teams] of Object.entries(groups)) {
+        const needed = teams.length * (teams.length - 1) / 2;
+        const done = confirmed.filter(s => teams.includes(s.team1) && teams.includes(s.team2)).length;
+        totalNeeded += needed;
+        totalDone += done;
+        if (done < needed) incomplete.push(`Group ${group}: ${done}/${needed}`);
+    }
+    if (totalDone >= totalNeeded) return '';
+    return `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:12px;margin-bottom:16px;font-size:13px;">
+        <strong>⏳ Group stage in progress</strong> — ${totalDone} of ${totalNeeded} games confirmed.<br>
+        <span style="color:#856404;">Knockout fixtures will be confirmed once all groups are complete.</span>
+        <div style="margin-top:6px;font-size:12px;color:#666;">${incomplete.join(' · ')}</div>
+    </div>`;
+}
+
 function renderBracket() {
     const st = getGroupStandings();
     const comp = currentKOComp;
-    let html = '';
+    let html = groupProgressBanner();
 
     if (comp === 'championship') {
         // R16 seedings: A1vH2, B1vG2, C1vF2, D1vE2, E1vD2, F1vC2, G1vB2, H1vA2
