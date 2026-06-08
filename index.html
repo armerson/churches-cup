@@ -155,7 +155,7 @@
             </div>
             <div id="scoreForm" style="display:none;">
                 <div style="background:#f0f5ff;padding:12px;border-radius:6px;margin-bottom:12px;border-left:4px solid var(--royal);font-weight:600;" id="matchInfo"></div>
-                <div class="form-group"><label>Your Score</label><input type="number" id="team1Score" value="0" min="0" max="99"></div>
+                <div class="form-group"><label>Your Score</label><input type="number" id="team1Score" value="0" min="0" max="99" oninput="checkPenRow()"></div>
                 <div class="form-group">
                     <label>Your Goalscorers <span style="font-weight:400;color:#888;">(optional)</span></label>
                     <div style="background:#f9f9f9;padding:12px;border-radius:6px;">
@@ -170,7 +170,16 @@
                         <div id="scorersList"></div>
                     </div>
                 </div>
-                <div class="form-group"><label>Opponent Score</label><input type="number" id="oppScore" value="0" min="0" max="99"></div>
+                <div class="form-group"><label>Opponent Score</label><input type="number" id="oppScore" value="0" min="0" max="99" oninput="checkPenRow()"></div>
+                <div id="koPenRowEntry" style="display:none;">
+                    <div style="background:#fff8e1;border:1px solid #ffc107;border-radius:6px;padding:10px;margin-bottom:12px;font-size:13px;color:#856404;">
+                        ⚡ Scores level — enter penalty shootout result if applicable
+                    </div>
+                    <div style="display:flex;gap:12px;">
+                        <div class="form-group" style="flex:1;"><label>Your Pens</label><input type="number" id="penScore1" value="0" min="0" max="99"></div>
+                        <div class="form-group" style="flex:1;"><label>Opp Pens</label><input type="number" id="penScore2" value="0" min="0" max="99"></div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Opponent Goalscorers <span style="font-weight:400;color:#888;">(optional)</span></label>
                     <div style="background:#f9f9f9;padding:12px;border-radius:6px;">
@@ -518,32 +527,69 @@ function renderRosterDisplay(players) {
 }
 
 // ── SCORE ENTRY ───────────────────────────────────────────────────────────────
+let currentKOMatch = null; // { matchId, competition, round, matchNum, t1, t2, label }
+
 function loadMyMatches() {
     const myGroup = Object.entries(groups).find(([, teams]) => teams.includes(currentTeam));
     const sel = document.getElementById('matchSelect');
     sel.innerHTML = '<option value="">-- Choose --</option>';
-    if (!myGroup) return;
 
-    const [groupKey, teammates] = myGroup;
-    teammates.filter(t => t !== currentTeam).forEach(opp => {
-        const already = allScores.find(s =>
-            ((s.team1 === currentTeam && s.team2 === opp) ||
-             (s.team1 === opp && s.team2 === currentTeam)) &&
-            (s.status === 'pending' || s.status === 'confirmed')
-        );
-        const opt = new Option(`vs ${opp}${already ? ' ✓' : ''}`, opp);
-        opt.disabled = !!already;
-        sel.appendChild(opt);
-    });
+    // Group stage fixtures
+    if (myGroup) {
+        const [groupKey, teammates] = myGroup;
+        teammates.filter(t => t !== currentTeam).forEach(opp => {
+            const already = allScores.find(s =>
+                ((s.team1 === currentTeam && s.team2 === opp) ||
+                 (s.team1 === opp && s.team2 === currentTeam)) &&
+                (s.status === 'pending' || s.status === 'confirmed')
+            );
+            const opt = new Option(`vs ${opp}${already ? ' ✓' : ''}`, opp);
+            opt.disabled = !!already;
+            sel.appendChild(opt);
+        });
+    }
+
+    // Knockout fixtures where this team is involved and no result yet
+    if (Array.isArray(allKO)) {
+        allKO.forEach(m => {
+            const involved = m.team1 === currentTeam || m.team2 === currentTeam;
+            const hasResult = m.winner && m.winner !== '';
+            const bothKnown = m.team1 && m.team2 && m.team1 !== 'TBD' && m.team2 !== 'TBD';
+            if (involved && bothKnown && !hasResult) {
+                const opp = m.team1 === currentTeam ? m.team2 : m.team1;
+                const label = m.round ? `[KO ${m.round.toUpperCase()}] vs ${opp}` : `[KO] vs ${opp}`;
+                const opt = new Option(label, 'KO:' + m.matchId);
+                sel.appendChild(opt);
+            }
+        });
+    }
 }
 
 function loadMatch() {
-    const opp = document.getElementById('matchSelect').value;
-    if (!opp) { document.getElementById('scoreForm').style.display = 'none'; return; }
+    const val = document.getElementById('matchSelect').value;
+    if (!val) { document.getElementById('scoreForm').style.display = 'none'; currentKOMatch = null; return; }
 
-    document.getElementById('matchInfo').textContent = `${currentTeam} vs ${opp}`;
+    let opp;
+    if (val.startsWith('KO:')) {
+        const matchId = val.slice(3);
+        const m = allKO.find(x => String(x.matchId) === String(matchId));
+        if (!m) return;
+        opp = m.team1 === currentTeam ? m.team2 : m.team1;
+        const parts = matchId.split('-');
+        currentKOMatch = { matchId, competition: parts[0], round: parts[1], matchNum: parts[2], t1: m.team1, t2: m.team2 };
+        const roundLabel = m.round ? m.round.toUpperCase() : 'KO';
+        document.getElementById('matchInfo').innerHTML = `<span style="font-size:11px;background:var(--royal);color:white;padding:2px 6px;border-radius:4px;margin-right:6px;">${roundLabel}</span>${currentTeam} vs ${opp}`;
+    } else {
+        opp = val;
+        currentKOMatch = null;
+        document.getElementById('matchInfo').textContent = `${currentTeam} vs ${opp}`;
+    }
+
     document.getElementById('team1Score').value = '0';
     document.getElementById('oppScore').value   = '0';
+    document.getElementById('penScore1').value  = '0';
+    document.getElementById('penScore2').value  = '0';
+    document.getElementById('koPenRowEntry').style.display = 'none';
     document.getElementById('scorersList').innerHTML = '';
     document.getElementById('oppScorersList').innerHTML = '';
     document.getElementById('scoreMsg').innerHTML = '';
@@ -558,6 +604,23 @@ function loadMatch() {
     roster.forEach(p => sel.appendChild(new Option(p, p)));
 
     document.getElementById('scoreForm').style.display = 'block';
+}
+
+function goReportKO(matchId) {
+    showTab('score-entry', document.getElementById('btnSubmit'));
+    // Wait for tab to render then pre-select
+    setTimeout(function() {
+        const sel = document.getElementById('matchSelect');
+        sel.value = 'KO:' + matchId;
+        loadMatch();
+    }, 100);
+}
+
+function checkPenRow() {
+    if (!currentKOMatch) return;
+    const s1 = parseInt(document.getElementById('team1Score').value) || 0;
+    const s2 = parseInt(document.getElementById('oppScore').value) || 0;
+    document.getElementById('koPenRowEntry').style.display = s1 === s2 ? 'block' : 'none';
 }
 
 function addScorer() {
@@ -616,38 +679,71 @@ function renderOppScorersList() {
 }
 
 async function submitScore() {
-    const opp    = document.getElementById('matchSelect').value;
+    const val    = document.getElementById('matchSelect').value;
     const score1 = parseInt(document.getElementById('team1Score').value) || 0;
     const score2 = parseInt(document.getElementById('oppScore').value)   || 0;
-    if (!opp) { showAlert('scoreMsg', 'Choose an opponent.', 'error'); return; }
-
-    const scorersArray = [];
-    Object.entries(currentScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) scorersArray.push(p); });
-
-    const oppScorersArray = [];
-    Object.entries(oppScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) oppScorersArray.push(p); });
-
-    const myGroup = (Object.entries(groups).find(([, teams]) => teams.includes(currentTeam)) || [])[0] || '';
+    if (!val) { showAlert('scoreMsg', 'Choose an opponent.', 'error'); return; }
 
     const btn = document.getElementById('submitScoreBtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Submitting…';
 
     try {
-        const res = await apiPost({
-            action: 'submitScore',
-            group: myGroup, team1: currentTeam, team2: opp,
-            score1, score2, scorers: scorersArray, scorers2: oppScorersArray, submittedBy: currentTeam
-        });
-        if (res.error) {
-            showAlert('scoreMsg', res.error, 'error');
+        if (currentKOMatch) {
+            // Knockout match submission
+            const { matchId, competition, round, matchNum, t1, t2 } = currentKOMatch;
+            const pen1 = parseInt(document.getElementById('penScore1').value) || 0;
+            const pen2 = parseInt(document.getElementById('penScore2').value) || 0;
+            // Scores are from current team's perspective — normalise to t1/t2
+            const myIsT1 = t1 === currentTeam;
+            const s1 = myIsT1 ? score1 : score2;
+            const s2 = myIsT1 ? score2 : score1;
+            const p1 = myIsT1 ? pen1 : pen2;
+            const p2 = myIsT1 ? pen2 : pen1;
+            let winner;
+            if (s1 > s2) winner = t1;
+            else if (s2 > s1) winner = t2;
+            else winner = p1 > p2 ? t1 : (p2 > p1 ? t2 : '');
+            const res = await apiPost({
+                action: 'saveKO', matchId, competition, round, matchNum,
+                team1: t1, team2: t2, score1: s1, score2: s2,
+                penScore1: s1 === s2 ? p1 : '', penScore2: s1 === s2 ? p2 : '',
+                winner
+            });
+            if (res.error) {
+                showAlert('scoreMsg', res.error, 'error');
+            } else {
+                showAlert('scoreMsg', '✓ Knockout result submitted! The organiser can edit if needed.', 'success');
+                document.getElementById('matchSelect').value = '';
+                document.getElementById('scoreForm').style.display = 'none';
+                currentKOMatch = null;
+                await refreshData();
+                loadMyMatches();
+                renderMyResults();
+            }
         } else {
-            showAlert('scoreMsg', `✓ Submitted! ${opp} can now confirm in their Confirm tab.`, 'success');
-            document.getElementById('matchSelect').value = '';
-            document.getElementById('scoreForm').style.display = 'none';
-            await refreshData();
-            loadMyMatches();
-            renderMyResults();
+            // Group stage submission
+            const opp = val;
+            const scorersArray = [];
+            Object.entries(currentScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) scorersArray.push(p); });
+            const oppScorersArray = [];
+            Object.entries(oppScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) oppScorersArray.push(p); });
+            const myGroup = (Object.entries(groups).find(([, teams]) => teams.includes(currentTeam)) || [])[0] || '';
+            const res = await apiPost({
+                action: 'submitScore',
+                group: myGroup, team1: currentTeam, team2: opp,
+                score1, score2, scorers: scorersArray, scorers2: oppScorersArray, submittedBy: currentTeam
+            });
+            if (res.error) {
+                showAlert('scoreMsg', res.error, 'error');
+            } else {
+                showAlert('scoreMsg', `✓ Submitted! ${opp} can now confirm in their Confirm tab.`, 'success');
+                document.getElementById('matchSelect').value = '';
+                document.getElementById('scoreForm').style.display = 'none';
+                await refreshData();
+                loadMyMatches();
+                renderMyResults();
+            }
         }
     } catch(e) {
         showAlert('scoreMsg', 'Network error — please try again.', 'error');
@@ -917,6 +1013,7 @@ function matchCard(matchId, t1, t2, label) {
     const winner = r ? r.winner : null;
     const played = r && r.winner;
     const canEdit = isOrganizer && t1 && t2 && t1 !== 'TBD' && t2 !== 'TBD';
+    const isMyMatch = !isOrganizer && currentTeam && (t1 === currentTeam || t2 === currentTeam) && t1 && t2 && t1 !== 'TBD' && t2 !== 'TBD';
 
     let scoreStr = '';
     if (r && r.winner) {
@@ -939,6 +1036,7 @@ function matchCard(matchId, t1, t2, label) {
             <div style="text-align:right;min-width:70px;">
                 ${scoreStr ? `<div style="font-weight:700;font-size:14px;">${scoreStr}</div>` : ''}
                 ${canEdit ? `<button onclick="openKOModal('${matchId}','${(t1||'').replace(/'/g,"\\'")}','${(t2||'').replace(/'/g,"\\'")}','${label.replace(/'/g,"\\'")}')" style="width:auto;padding:4px 8px;font-size:11px;margin-top:4px;">${played ? 'Edit' : 'Enter'}</button>` : ''}
+                ${isMyMatch && !played ? `<button onclick="goReportKO('${matchId}')" style="width:auto;padding:4px 8px;font-size:11px;margin-top:4px;background:var(--royal);color:white;">Report Score</button>` : ''}
             </div>
         </div>
     </div>`;
