@@ -119,6 +119,7 @@
     <button class="tab-btn" id="btnConfirm"   onclick="showTab('confirm',this)">Confirm</button>
     <button class="tab-btn" id="btnTable"     onclick="showTab('leaderboard',this)">Standings</button>
     <button class="tab-btn" id="btnKnockout"  onclick="showTab('knockout',this)">Knockout</button>
+    <button class="tab-btn" id="btnRules"     onclick="showTab('rules',this)">Rules</button>
     <button class="tab-btn" id="btnOrganizer" onclick="showTab('organizer',this)">Organizer</button>
 </div>
 
@@ -316,6 +317,62 @@
     </div>
 
     <!-- ORGANIZER -->
+    <div id="rules" class="section">
+        <div class="card">
+            <h2 style="color:var(--royal);margin-bottom:16px;">⚽ Churches Cup 2026 — Rules</h2>
+
+            <div style="margin-bottom:20px;">
+                <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--royal);border-bottom:2px solid var(--royal);padding-bottom:4px;margin-bottom:10px;">Group Stage</div>
+                <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.8;">
+                    <li>4 teams per group</li>
+                    <li>Each team plays 3 games <strong>(12 minutes each)</strong></li>
+                    <li>Points: <strong>Win = 3pts</strong> · <strong>Draw = 1pt</strong> · <strong>Loss = 0pts</strong></li>
+                </ul>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--royal);border-bottom:2px solid var(--royal);padding-bottom:4px;margin-bottom:10px;">Knockout Stage</div>
+                <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.8;">
+                    <li>Each match: <strong>12 minutes</strong></li>
+                    <li>If tied after 12 minutes: <strong>PENALTIES</strong></li>
+                    <li>Each team takes <strong>3 penalties</strong></li>
+                    <li>If still tied: match is drawn</li>
+                </ul>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--royal);border-bottom:2px solid var(--royal);padding-bottom:4px;margin-bottom:10px;">Tournaments</div>
+                <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.8;">
+                    <li><strong>Championship</strong> — Top 2 from each group advance</li>
+                    <li><strong>Shield</strong> — R16 losers + 3rd place teams (no original group matchups)</li>
+                    <li><strong>Plate</strong> — 4th place teams</li>
+                </ul>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#c0392b;border-bottom:2px solid #c0392b;padding-bottom:4px;margin-bottom:10px;">⚠️ Special Football Rules</div>
+                <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.8;">
+                    <li><strong>6 players per team</strong> (including goalkeeper) on pitch</li>
+                    <li>No offsides</li>
+                    <li>Roll-on, roll-off substitutes only when ball is out of play</li>
+                    <li style="color:#c0392b;font-weight:700;">NO SLIDE TACKLES</li>
+                    <li><strong>Goalkeeper:</strong> Cannot kick ball out of hands or drop kick — must throw or place on ground and play with feet</li>
+                    <li><strong>Back pass rule:</strong> Free kick awarded 5 yards outside penalty area</li>
+                    <li>Matches played straight through — <strong>no halftime</strong></li>
+                </ul>
+            </div>
+
+            <div>
+                <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--royal);border-bottom:2px solid var(--royal);padding-bottom:4px;margin-bottom:10px;">🕙 Tournament Times</div>
+                <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.8;">
+                    <li><strong>Group Stage:</strong> 10:00 AM – 12:48 PM</li>
+                    <li><strong>Lunch Break:</strong> 12:48 PM – 1:30 PM</li>
+                    <li><strong>Knockout:</strong> 1:30 PM – 3:30 PM</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
     <div id="organizer" class="section">
         <div class="card">
             <h2>Tournament Dashboard</h2>
@@ -557,7 +614,7 @@ function groupsComplete() {
 
 function updateUI() {
     const loggedIn = currentTeam && !isOrganizer;
-    ['btnRoster','btnFixtures','btnSubmit','btnConfirm','btnTable','btnKnockout'].forEach(function(id) {
+    ['btnRoster','btnFixtures','btnSubmit','btnConfirm','btnTable','btnKnockout','btnRules'].forEach(function(id) {
         var el = document.getElementById(id);
         if (!el) return;
         if (loggedIn) el.classList.add('visible');
