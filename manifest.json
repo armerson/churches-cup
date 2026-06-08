@@ -1,0 +1,24 @@
+{
+  "name": "Churches Cup 2026",
+  "short_name": "Churches Cup",
+  "description": "Ambassadors Football – Churches Cup 2026 Tournament App",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#274296",
+  "theme_color": "#274296",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
