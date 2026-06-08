@@ -340,6 +340,74 @@
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const API_URL = 'https://script.google.com/macros/s/AKfycbyubQx7dYI--e8UEyfz_rQ0mayLE1GxHZE3acWmKGj84g0nXKqqBu3uRSOlJDwUgJzX/exec';
 
+// ── SCHEDULE (from Churches_Cup_Master_Schedule_4Pitches.xlsx) ────────────────
+// Key = sorted(team1, team2).join('||'), value = kick-off time
+const groupSchedule = {
+    "Covenant||Mourne": "10:00",
+    "Spain Madrid||Warringstown Presbyterian Church": "10:00",
+    "Ballymagerney FPC||Bethany FC": "10:00",
+    "Sloan Street Presbyterian||YAKAAR ACADEMY": "10:00",
+    "Grace Community Church Richhill||Portabello Baptist": "10:14",
+    "NTPC||Portadown Elim": "10:14",
+    "Acpc fc||Eagles": "10:14",
+    "Lurgan Elim||Ulster wonders fc": "10:14",
+    "Newmills||Team X": "10:28",
+    "Benburb Ballers||Bleary FC": "10:28",
+    "CGR FC||Killicomaine Baptist church": "10:28",
+    "CFPC Originals||Gortmerron Goats": "10:28",
+    "Ancora Church Football||Legacurry Presbyterian": "10:42",
+    "Downshire Church||Emmanuel Baptist": "10:42",
+    "Derry/Edenderry||The Blues": "10:42",
+    "Ardtrea Aardvarks||Team Black": "10:42",
+    "Covenant||Spain Madrid": "10:56",
+    "Mourne||Warringstown Presbyterian Church": "10:56",
+    "Bethany FC||YAKAAR ACADEMY": "10:56",
+    "Ballymagerney FPC||Sloan Street Presbyterian": "10:56",
+    "Grace Community Church Richhill||NTPC": "11:10",
+    "Portabello Baptist||Portadown Elim": "11:10",
+    "Eagles||Lurgan Elim": "11:10",
+    "Acpc fc||Ulster wonders fc": "11:10",
+    "Bleary FC||Team X": "11:24",
+    "Benburb Ballers||Newmills": "11:24",
+    "CFPC Originals||Killicomaine Baptist church": "11:24",
+    "CGR FC||Gortmerron Goats": "11:24",
+    "Ancora Church Football||Emmanuel Baptist": "11:38",
+    "Downshire Church||Legacurry Presbyterian": "11:38",
+    "Ardtrea Aardvarks||Derry/Edenderry": "11:38",
+    "Team Black||The Blues": "11:38",
+    "Covenant||Warringstown Presbyterian Church": "11:52",
+    "Mourne||Spain Madrid": "11:52",
+    "Bethany FC||Sloan Street Presbyterian": "11:52",
+    "Ballymagerney FPC||YAKAAR ACADEMY": "11:52",
+    "Grace Community Church Richhill||Portadown Elim": "12:06",
+    "NTPC||Portabello Baptist": "12:06",
+    "Eagles||Ulster wonders fc": "12:06",
+    "Acpc fc||Lurgan Elim": "12:06",
+    "Benburb Ballers||Team X": "12:20",
+    "Bleary FC||Newmills": "12:20",
+    "Gortmerron Goats||Killicomaine Baptist church": "12:20",
+    "CFPC Originals||CGR FC": "12:20",
+    "Ancora Church Football||Downshire Church": "12:34",
+    "Emmanuel Baptist||Legacurry Presbyterian": "12:34",
+    "Derry/Edenderry||Team Black": "12:34",
+    "Ardtrea Aardvarks||The Blues": "12:34",
+};
+
+// KO kick-off times (from Churches_Cup_Knockout_Draw.xlsx Timeline sheet)
+// Slot 8 (14:54): ChampSF + PlateSF | Slot 9 (15:06): ChampFinal + PlateFinal + ShieldSF
+const koSchedule = {
+    "c-r16-1":"13:30","c-r16-2":"13:30","c-r16-3":"13:30","c-r16-4":"13:30",
+    "c-r16-5":"13:42","c-r16-6":"13:42","c-r16-7":"13:42","c-r16-8":"13:42",
+    "s-r1-1":"13:54","s-r1-2":"13:54","s-r1-3":"13:54","s-r1-4":"13:54",
+    "s-r1-5":"14:06","s-r1-6":"14:06","s-r1-7":"14:06","s-r1-8":"14:06",
+    "p-r1-1":"14:18","p-r1-2":"14:18","p-r1-3":"14:18","p-r1-4":"14:18",
+    "c-qf-1":"14:30","c-qf-2":"14:30","c-qf-3":"14:30","c-qf-4":"14:30",
+    "s-qf-1":"14:42","s-qf-2":"14:42","s-qf-3":"14:42","s-qf-4":"14:42",
+    "c-sf-1":"14:54","c-sf-2":"14:54","p-sf-1":"14:54","p-sf-2":"14:54",
+    "c-final":"15:06","p-final":"15:06","s-sf-1":"15:06","s-sf-2":"15:06",
+    "s-final":"15:18",
+};
+
 // ── DATA ──────────────────────────────────────────────────────────────────────
 const groups = {
     A: ["Covenant","Mourne","Spain Madrid","Warringstown Presbyterian Church"],
@@ -995,7 +1063,7 @@ function renderFixtures() {
                 (s.status === 'pending' || s.status === 'confirmed')
             );
             const key = scheduleKey(currentTeam, opp);
-            const sched = allSchedule[key] || {};
+            const kickoff = groupSchedule[key] || '';
             const myScore  = result ? (result.team1 === currentTeam ? result.score1 : result.score2) : null;
             const oppScore = result ? (result.team1 === currentTeam ? result.score2 : result.score1) : null;
             const statusClass = result ? (result.status === 'confirmed' ? 'confirmed' : 'pending') : '';
@@ -1003,7 +1071,7 @@ function renderFixtures() {
             html += `<div class="score-item ${statusClass}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
                 <div style="flex:1;">
                     <div style="font-weight:600;font-size:14px;">${currentTeam} <span style="color:#888;">vs</span> ${opp}</div>
-                    ${sched.time ? `<div style="font-size:12px;color:#555;margin-top:2px;">⏰ ${sched.time}${sched.pitch ? ' · ' + sched.pitch : ''}</div>` : '<div style="font-size:12px;color:#bbb;margin-top:2px;">Time TBC</div>'}
+                    ${kickoff ? `<div style="font-size:12px;color:#555;margin-top:2px;">⏰ ${kickoff}</div>` : '<div style="font-size:12px;color:#bbb;margin-top:2px;">Time TBC</div>'}
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
                     ${result
@@ -1168,9 +1236,10 @@ function renderFixtureTimesEditor() {
                 const t1 = teams[i], t2 = teams[j];
                 const key = scheduleKey(t1, t2);
                 const sched = allSchedule[key] || {};
+                const defaultTime = sched.time || groupSchedule[key] || '';
                 html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
                     <span style="flex:1;min-width:120px;font-size:13px;font-weight:500;">${t1} vs ${t2}</span>
-                    <input type="time" id="time-${key}" value="${sched.time||''}" style="width:100px;padding:4px;font-size:13px;">
+                    <input type="time" id="time-${key}" value="${defaultTime}" style="width:100px;padding:4px;font-size:13px;">
                     <input type="text" id="pitch-${key}" value="${sched.pitch||pl}" placeholder="Pitch" style="width:110px;padding:4px;font-size:13px;">
                     <button onclick="saveFixtureTime('${key.replace(/'/g,"\\'")}','${group}')" style="width:auto;padding:4px 10px;font-size:12px;margin-top:0;">Save</button>
                     <span id="ftime-msg-${key}" style="font-size:11px;color:green;"></span>
@@ -1243,7 +1312,7 @@ const koPitchAssignment = {
     's-r1-7':'red',    's-r1-8':'red',
     's-qf-1':'white',  's-qf-2':'blue',
     's-qf-3':'yellow', 's-qf-4':'red',
-    's-sf-1':'white',  's-sf-2':'blue',   // Slot: white + blue
+    's-sf-1':'blue',   's-sf-2':'yellow', // Slot 9: c-final=white, s-sf-1=blue, s-sf-2=yellow, p-final=red
     's-final':'yellow',
     // Plate (8 teams — starts at QF, no R1)
     'p-r1-1':'white',  'p-r1-2':'blue',
@@ -1295,10 +1364,11 @@ function matchCard(matchId, t1, t2, label) {
     const t1Style = winner === t1 ? 'font-weight:700;color:#155724;' : (winner && winner !== t1 ? 'color:#999;text-decoration:line-through;' : '');
     const t2Style = winner === t2 ? 'font-weight:700;color:#155724;' : (winner && winner !== t2 ? 'color:#999;text-decoration:line-through;' : '');
 
+    const koTime = koSchedule[matchId] ? `<span style="font-size:10px;color:#555;margin-right:6px;">⏰ ${koSchedule[matchId]}</span>` : '';
     return `<div class="bracket-match" style="margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
             <span style="font-size:10px;color:#888;">${label}</span>
-            ${pitchBadge(matchId)}
+            <span>${koTime}${pitchBadge(matchId)}</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="flex:1;">
