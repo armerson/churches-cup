@@ -127,6 +127,7 @@
 
     <!-- SETUP -->
     <div id="setup" class="section active">
+        <div id="noticeBoard" style="display:none;margin-bottom:4px;"></div>
         <div class="card" style="text-align:center;padding:20px 16px;">
             <button onclick="enterPlayerView()" style="width:100%;padding:14px;font-size:16px;font-weight:700;background:#274296;color:white;border:none;border-radius:8px;cursor:pointer;margin-bottom:8px;">👁 Player View</button>
             <div style="font-size:12px;color:#888;">View standings, knockout bracket &amp; rules</div>
@@ -258,7 +259,7 @@
             <h2>Group Standings</h2>
             <p style="font-size:12px;color:#888;margin-bottom:10px;">Only confirmed scores count.</p>
             <div id="leaderboardContent"><div class="no-data">Loading…</div></div>
-            <h3>Top Goalscorers</h3>
+            <h3>🥇 Golden Boot</h3>
             <div id="topScorersContent"></div>
         </div>
     </div>
@@ -417,13 +418,21 @@
 
     <div id="organizer" class="section">
         <div class="card">
+            <h2>📢 Noticeboard</h2>
+            <p style="font-size:13px;color:#666;margin-bottom:10px;">Post announcements visible to everyone on the login screen — BBQ open, shop deals, delays, anything.</p>
+            <div id="noticesAdminList" style="margin-bottom:12px;"></div>
+            <textarea id="noticeInput" placeholder="e.g. 🍔 BBQ now open! Hot food available at the main entrance." style="width:100%;min-height:70px;padding:8px;font-size:13px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;resize:vertical;"></textarea>
+            <button onclick="postNotice()" class="success" style="margin-top:8px;">📢 Post Notice</button>
+            <div id="noticeMsg" style="margin-top:6px;font-size:13px;"></div>
+        </div>
+        <div class="card" style="margin-top:12px;">
             <h2>Tournament Dashboard</h2>
             <button onclick="refreshData().then(renderOrganizerDashboard)" class="secondary" style="margin-bottom:12px;">↻ Refresh</button>
             <h3>All Results</h3>
             <div id="allResultsContent"><div class="no-data">Loading…</div></div>
             <h3>Group Standings</h3>
             <div id="orgLeaderboardContent"></div>
-            <h3>Top Goalscorers</h3>
+            <h3>🥇 Golden Boot</h3>
             <div id="orgTopScorersContent"></div>
         </div>
         <div class="card" style="margin-top:12px;">
@@ -541,6 +550,7 @@ let oppScorers = {};
 let allScores = [];       // loaded from Google Sheets
 let allRosters = {};      // loaded from Google Sheets
 let allSchedule = {};     // { matchKey: { time, pitch } }
+let allNotices = [];      // [ { id, message, timestamp } ]
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
@@ -731,16 +741,61 @@ function showTab(name, btn) {
 // ── DATA LOADING ──────────────────────────────────────────────────────────────
 async function refreshData() {
     try {
-        const [scores, rosters, ko, schedule] = await Promise.all([
-            apiGet('getScores'), apiGet('getRosters'), apiGet('getKO'), apiGet('getSchedule')
+        const [scores, rosters, ko, schedule, notices] = await Promise.all([
+            apiGet('getScores'), apiGet('getRosters'), apiGet('getKO'), apiGet('getSchedule'), apiGet('getNotices')
         ]);
         allScores  = Array.isArray(scores)  ? scores  : [];
         allRosters = rosters && typeof rosters === 'object' ? rosters : {};
         if (Array.isArray(ko) && !ko.error) allKO = ko;
         if (schedule && typeof schedule === 'object' && !schedule.error) allSchedule = schedule;
+        if (Array.isArray(notices)) { allNotices = notices; renderNoticeBoard(); }
     } catch(e) {
         console.error('Refresh failed:', e);
     }
+}
+
+function renderNoticeBoard() {
+    const el = document.getElementById('noticeBoard');
+    if (!el) return;
+    if (!allNotices.length) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.innerHTML = allNotices.map(n => `
+        <div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:6px;padding:10px 14px;margin-bottom:6px;">
+            <div style="font-size:13px;color:#333;">${n.message}</div>
+            <div style="font-size:11px;color:#aaa;margin-top:4px;">${n.timestamp ? new Date(n.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</div>
+        </div>`).join('');
+    // Also update admin list if organiser is viewing
+    const adminEl = document.getElementById('noticesAdminList');
+    if (adminEl) {
+        adminEl.innerHTML = allNotices.length
+            ? allNotices.map(n => `
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;background:#f8f9fa;border-radius:6px;padding:8px 10px;margin-bottom:6px;gap:8px;">
+                    <div style="font-size:13px;flex:1;">${n.message}<div style="font-size:11px;color:#aaa;margin-top:2px;">${n.timestamp ? new Date(n.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</div></div>
+                    <button onclick="deleteNotice('${n.id}')" style="width:auto;padding:3px 8px;font-size:11px;background:#e74c3c;color:white;margin-top:0;flex-shrink:0;">✕</button>
+                </div>`).join('')
+            : '<div style="font-size:13px;color:#aaa;">No notices posted yet.</div>';
+    }
+}
+
+async function postNotice() {
+    const msg = document.getElementById('noticeInput').value.trim();
+    const el  = document.getElementById('noticeMsg');
+    if (!msg) { el.style.color='#e74c3c'; el.textContent = 'Please enter a message.'; return; }
+    el.style.color='#888'; el.textContent = 'Posting…';
+    try {
+        await apiPost({ action: 'postNotice', message: msg });
+        document.getElementById('noticeInput').value = '';
+        el.style.color='green'; el.textContent = '✓ Posted!';
+        setTimeout(() => el.textContent = '', 2000);
+        await refreshData();
+    } catch(e) { el.style.color='#e74c3c'; el.textContent = 'Failed to post.'; }
+}
+
+async function deleteNotice(id) {
+    try {
+        await apiPost({ action: 'deleteNotice', id });
+        await refreshData();
+    } catch(e) { console.error('deleteNotice', e); }
 }
 
 // ── ROSTER ────────────────────────────────────────────────────────────────────

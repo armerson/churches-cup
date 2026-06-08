@@ -8,6 +8,7 @@ function doGet(e) {
   else if (action === 'getKO')       result = getKOMatches();
   else if (action === 'getPins')     result = getPins();
   else if (action === 'getSchedule') result = getSchedule();
+  else if (action === 'getNotices')  result = getNotices();
   else                               result = { error: 'Unknown action' };
   return toJson(result);
 }
@@ -22,6 +23,8 @@ function doPost(e) {
   else if (data.action === 'editScore')     result = editScore(data);
   else if (data.action === 'updatePin')     result = updatePin(data);
   else if (data.action === 'setFixtureTime') result = setFixtureTime(data);
+  else if (data.action === 'postNotice')     result = postNotice(data);
+  else if (data.action === 'deleteNotice')   result = deleteNotice(data);
   else                                      result = { error: 'Unknown action' };
   return toJson(result);
 }
@@ -273,6 +276,43 @@ function updatePin(data) {
   }
   sheet.appendRow([data.team, String(data.newPin)]);
   return { success: true };
+}
+
+// ---------- Noticeboard ----------
+
+function getNotices() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Notices');
+  if (!sheet) return [];
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length < 2) return [];
+  var headers = rows[0];
+  return rows.slice(1).map(function(row) {
+    var obj = {};
+    headers.forEach(function(h, i) { obj[h] = row[i]; });
+    return obj;
+  }).reverse(); // newest first
+}
+
+function postNotice(data) {
+  var sheet = getOrCreateSheet('Notices', ['id','message','timestamp']);
+  var id = Utilities.getUuid();
+  sheet.appendRow([id, data.message, new Date().toISOString()]);
+  return { success: true, id: id };
+}
+
+function deleteNotice(data) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Notices');
+  if (!sheet) return { error: 'No Notices sheet' };
+  var rows = sheet.getDataRange().getValues();
+  var headers = rows[0];
+  var idCol = headers.indexOf('id');
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][idCol]) === String(data.id)) {
+      sheet.deleteRow(i + 1);
+      return { success: true };
+    }
+  }
+  return { error: 'Notice not found' };
 }
 
 // ---------- Helpers ----------
