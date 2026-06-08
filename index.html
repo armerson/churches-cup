@@ -1074,13 +1074,9 @@ const koPitchAssignment = {
     's-qf-3':'yellow', 's-qf-4':'red',
     's-sf-1':'yellow', 's-sf-2':'red',   // Slot: yellow + red
     's-final':'yellow',
-    // Plate
-    'p-r1-1':'white',  'p-r1-2':'white',
-    'p-r1-3':'blue',   'p-r1-4':'blue',
-    'p-r1-5':'yellow', 'p-r1-6':'yellow',
-    'p-r1-7':'red',    'p-r1-8':'red',
-    'p-qf-1':'white',  'p-qf-2':'blue',
-    'p-qf-3':'yellow', 'p-qf-4':'red',
+    // Plate (8 teams — starts at QF, no R1)
+    'p-r1-1':'white',  'p-r1-2':'blue',
+    'p-r1-3':'yellow', 'p-r1-4':'red',
     'p-sf-1':'white',  'p-sf-2':'blue',  // Slot: white + blue (Shield uses yellow + red)
     'p-final':'red',
 };
@@ -1259,20 +1255,20 @@ function renderBracket() {
         html += roundSection('Final', matchCard(sfinal.id,sfinal.t1,sfinal.t2,sfinal.label));
 
     } else if (comp === 'plate') {
-        // 4th place teams: A4, B4, C4, D4, E4, F4, G4, H4
-        const pr1 = [
-            {id:'p-r1-1', t1: (st.A ? st.A[3] : undefined), t2: (st.E ? st.E[3] : undefined), label:'R1: A4 vs E4'},
-            {id:'p-r1-2', t1: (st.B ? st.B[3] : undefined), t2: (st.F ? st.F[3] : undefined), label:'R1: B4 vs F4'},
-            {id:'p-r1-3', t1: (st.C ? st.C[3] : undefined), t2: (st.G ? st.G[3] : undefined), label:'R1: C4 vs G4'},
-            {id:'p-r1-4', t1: (st.D ? st.D[3] : undefined), t2: (st.H ? st.H[3] : undefined), label:'R1: D4 vs H4'},
+        // 4th place teams: A4, B4, C4, D4, E4, F4, G4, H4 — 8 teams, starts at QF
+        const pqf = [
+            {id:'p-r1-1', t1: (st.A ? st.A[3] : undefined), t2: (st.E ? st.E[3] : undefined), label:'QF: A4 vs E4'},
+            {id:'p-r1-2', t1: (st.B ? st.B[3] : undefined), t2: (st.F ? st.F[3] : undefined), label:'QF: B4 vs F4'},
+            {id:'p-r1-3', t1: (st.C ? st.C[3] : undefined), t2: (st.G ? st.G[3] : undefined), label:'QF: C4 vs G4'},
+            {id:'p-r1-4', t1: (st.D ? st.D[3] : undefined), t2: (st.H ? st.H[3] : undefined), label:'QF: D4 vs H4'},
         ];
         const psf = [
-            {id:'p-sf-1', t1: koWinner('p-r1-1',pr1[0].t1,pr1[0].t2), t2: koWinner('p-r1-2',pr1[1].t1,pr1[1].t2), label:'SF 1'},
-            {id:'p-sf-2', t1: koWinner('p-r1-3',pr1[2].t1,pr1[2].t2), t2: koWinner('p-r1-4',pr1[3].t1,pr1[3].t2), label:'SF 2'},
+            {id:'p-sf-1', t1: koWinner('p-r1-1',pqf[0].t1,pqf[0].t2), t2: koWinner('p-r1-2',pqf[1].t1,pqf[1].t2), label:'SF 1'},
+            {id:'p-sf-2', t1: koWinner('p-r1-3',pqf[2].t1,pqf[2].t2), t2: koWinner('p-r1-4',pqf[3].t1,pqf[3].t2), label:'SF 2'},
         ];
         const pfinal = {id:'p-final', t1: koWinner('p-sf-1',psf[0].t1,psf[0].t2), t2: koWinner('p-sf-2',psf[1].t1,psf[1].t2), label:'Plate Final'};
 
-        html += roundSection('Round 1', pr1.map(m => matchCard(m.id,m.t1,m.t2,m.label)).join(''));
+        html += roundSection('Quarter Finals', pqf.map(m => matchCard(m.id,m.t1,m.t2,m.label)).join(''));
         html += roundSection('Semi Finals', psf.map(m => matchCard(m.id,m.t1,m.t2,m.label)).join(''));
         html += roundSection('Final', matchCard(pfinal.id,pfinal.t1,pfinal.t2,pfinal.label));
     }
