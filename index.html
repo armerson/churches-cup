@@ -689,7 +689,8 @@ function updateUI() {
 }
 
 function showTab(name, btn) {
-    if (!currentTeam && !isOrganizer && name !== 'setup') return;
+    const playerViewTabs = ['leaderboard','knockout','rules'];
+    if (!currentTeam && !isOrganizer && name !== 'setup' && !(isPlayerView && playerViewTabs.includes(name))) return;
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.getElementById(name).classList.add('active');
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
