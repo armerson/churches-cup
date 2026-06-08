@@ -1058,7 +1058,13 @@ function renderFixtures() {
         const pl = pitchLabel(groupKey);
         html += `<div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Group ${groupKey} — <span class="pitch-badge ${pc}" style="padding:2px 8px;">${pl}</span></div>`;
 
-        teammates.filter(t => t !== currentTeam).forEach(opp => {
+        const opponents = teammates.filter(t => t !== currentTeam);
+        opponents.sort((a, b) => {
+            const ta = groupSchedule[scheduleKey(currentTeam, a)] || '99:99';
+            const tb = groupSchedule[scheduleKey(currentTeam, b)] || '99:99';
+            return ta.localeCompare(tb);
+        });
+        opponents.forEach(opp => {
             const result = allScores.find(s =>
                 ((s.team1 === currentTeam && s.team2 === opp) ||
                  (s.team1 === opp && s.team2 === currentTeam)) &&
