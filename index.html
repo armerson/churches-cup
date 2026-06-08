@@ -625,7 +625,11 @@ async function refreshData() {
 
 // ── ROSTER ────────────────────────────────────────────────────────────────────
 function loadRosterInputs() {
-    const saved = JSON.parse(localStorage.getItem(`cc_roster_${currentTeam}`) || '[]');
+    // Server data takes priority; fall back to localStorage if server has nothing
+    const serverPlayers = allRosters[currentTeam] || [];
+    const saved = serverPlayers.length
+        ? serverPlayers
+        : JSON.parse(localStorage.getItem(`cc_roster_${currentTeam}`) || '[]');
     const inputs = document.querySelectorAll('.player-input');
     inputs.forEach((inp, i) => inp.value = saved[i] || '');
     renderRosterDisplay(saved);
