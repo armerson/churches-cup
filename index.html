@@ -60,7 +60,13 @@
         .status-disputed  { background: #f8d7da; color: #721c24; }
 
         .group-section { margin-bottom: 20px; }
-        .group-header { font-size: 14px; font-weight: 600; margin-bottom: 8px; padding: 8px; background: #f0f0f0; border-radius: 4px; }
+        .group-header { font-size: 14px; font-weight: 700; margin-bottom: 8px; padding: 8px 12px; border-radius: 4px; display: flex; align-items: center; gap: 10px; }
+        /* Pitch colour bands */
+        .pitch-white  { background: #f5f5f5; color: #222; border: 2px solid #ccc; }
+        .pitch-blue   { background: #274296; color: #fff; border: 2px solid #1d3278; }
+        .pitch-yellow { background: #f5c800; color: #222; border: 2px solid #d4a900; }
+        .pitch-red    { background: #c0392b; color: #fff; border: 2px solid #962d22; }
+        .pitch-badge  { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; }
         .scorer-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
         .scorer-goals { background: var(--royal); color: white; padding: 2px 8px; border-radius: 3px; font-weight: 600; }
 
@@ -886,13 +892,36 @@ function updateConfirmBadge() {
 }
 
 // ── LEADERBOARD ───────────────────────────────────────────────────────────────
+// Pitch colour config: 2 groups per pitch
+const pitches = {
+    white:  ['A','B'],
+    blue:   ['C','D'],
+    yellow: ['E','F'],
+    red:    ['G','H']
+};
+function pitchClass(group) {
+    for (const [colour, gs] of Object.entries(pitches)) {
+        if (gs.includes(group)) return 'pitch-' + colour;
+    }
+    return '';
+}
+function pitchLabel(group) {
+    for (const [colour, gs] of Object.entries(pitches)) {
+        if (gs.includes(group)) return colour.charAt(0).toUpperCase() + colour.slice(1) + ' Pitch';
+    }
+    return '';
+}
+
 function renderLeaderboard() {
     const confirmed = allScores.filter(s => s.status === 'confirmed');
     let html = '';
     for (const [group, teams] of Object.entries(groups)) {
         const standings = calcStandings(group, teams, confirmed);
         html += `<div class="group-section">
-            <div class="group-header">Group ${group}</div>
+            <div class="group-header ${pitchClass(group)}">
+                Group ${group}
+                <span class="pitch-badge" style="background:rgba(0,0,0,0.15);">${pitchLabel(group)}</span>
+            </div>
             <table>
                 <tr><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Pts</th></tr>
                 ${standings.map((s,i) => `<tr ${i<2?'style="font-weight:600"':''}>
@@ -960,7 +989,10 @@ function renderOrganizerDashboard() {
     for (const [group, teams] of Object.entries(groups)) {
         const standings = calcStandings(group, teams, confirmed);
         lbHtml += `<div class="group-section">
-            <div class="group-header">Group ${group}</div>
+            <div class="group-header ${pitchClass(group)}">
+                Group ${group}
+                <span class="pitch-badge" style="background:rgba(0,0,0,0.15);">${pitchLabel(group)}</span>
+            </div>
             <table>
                 <tr><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Pts</th></tr>
                 ${standings.map(s => `<tr><td>${s.team}</td><td>${s.p}</td><td>${s.w}</td><td>${s.d}</td><td>${s.l}</td><td>${s.gf}</td><td>${s.ga}</td><td>${s.pts}</td></tr>`).join('')}
