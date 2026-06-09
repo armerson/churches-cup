@@ -931,7 +931,7 @@ function loadMatch() {
     document.getElementById('penScore2').value  = '0';
     document.getElementById('koPenRowEntry').style.display = 'none';
     document.getElementById('scorersList').innerHTML = '';
-    document.getElementById('oppScorersList').innerHTML = '';
+    if (document.getElementById('oppScorersList')) document.getElementById('oppScorersList').innerHTML = '';
     document.getElementById('scoreMsg').innerHTML = '';
     currentScorers = {};
     oppScorers = {};
@@ -1011,6 +1011,7 @@ function renderScorersList() {
 }
 
 function renderOppScorersList() {
+    if (!document.getElementById('oppScorersList')) return;
     document.getElementById('oppScorersList').innerHTML = Object.entries(oppScorers).map(([p, n]) =>
         `<span class="player-badge" style="background:#fde8e8;color:#8b1a1a;" onclick="removeOppScorer('${p.replace(/'/g,"\\'")}')">
             ${p}${n > 1 ? ` ×${n}` : ''} ✕
