@@ -118,15 +118,22 @@ function editScore(data) {
   if (!sheet) return { error: 'No Scores sheet' };
   var rows = sheet.getDataRange().getValues();
   var headers = rows[0];
-  var idCol = headers.indexOf('id');
-  var s1Col = headers.indexOf('score1');
-  var s2Col = headers.indexOf('score2');
+  var idCol     = headers.indexOf('id');
+  var s1Col     = headers.indexOf('score1');
+  var s2Col     = headers.indexOf('score2');
   var statusCol = headers.indexOf('status');
+  function ensureCol(name) {
+    var idx = headers.indexOf(name);
+    if (idx === -1) { idx = headers.length; headers.push(name); sheet.getRange(1, idx+1).setValue(name); }
+    return idx;
+  }
   for (var i = 1; i < rows.length; i++) {
     if (String(rows[i][idCol]) === String(data.id)) {
       sheet.getRange(i+1, s1Col+1).setValue(Number(data.score1));
       sheet.getRange(i+1, s2Col+1).setValue(Number(data.score2));
       sheet.getRange(i+1, statusCol+1).setValue('confirmed');
+      if (data.scorers)  sheet.getRange(i+1, ensureCol('scorers')+1).setValue(JSON.stringify(data.scorers));
+      if (data.scorers2) sheet.getRange(i+1, ensureCol('scorers2')+1).setValue(JSON.stringify(data.scorers2));
       return { success: true };
     }
   }
