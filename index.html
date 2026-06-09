@@ -831,12 +831,13 @@ async function deleteNotice(id) {
 
 // ── ROSTER ────────────────────────────────────────────────────────────────────
 function loadRosterInputs() {
-    // Always use server data; if server has no entry, clear localStorage too
+    // Server takes priority; fall back to localStorage if server has nothing for this team
     const serverPlayers = allRosters[currentTeam] || [];
-    if (!serverPlayers.length) localStorage.removeItem(`cc_roster_${currentTeam}`);
+    const localPlayers  = JSON.parse(localStorage.getItem(`cc_roster_${currentTeam}`) || '[]');
+    const players = serverPlayers.length ? serverPlayers : localPlayers;
     const inputs = document.querySelectorAll('.player-input');
-    inputs.forEach((inp, i) => inp.value = serverPlayers[i] || '');
-    renderRosterDisplay(serverPlayers);
+    inputs.forEach((inp, i) => inp.value = players[i] || '');
+    renderRosterDisplay(players);
 }
 
 async function saveRoster() {
