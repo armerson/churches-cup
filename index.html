@@ -1151,7 +1151,7 @@ function renderConfirmList() {
             <small style="display:block;color:#888;margin-top:2px;">Submitted by ${s.submittedBy}</small>
             ${myScore > 0 ? `
             <div style="margin-top:10px;">
-                <label style="font-size:12px;font-weight:600;">Your goalscorers — add exactly ${myScore} <span id="cscore-count-${s.id}" style="color:#c0392b;">(0/${myScore})</span>:</label>
+                <label style="font-size:12px;font-weight:600;">Your goalscorers — add exactly ${myScore} <span id="cscore-count-${s.id}" data-needed="${myScore}" style="color:#c0392b;">(0/${myScore})</span>:</label>
                 <div style="display:flex;gap:6px;margin-top:4px;">
                     ${myRoster.length
                         ? `<select id="cscorer-${s.id}" style="flex:1;padding:8px;font-size:14px;"><option value="">-- Player --</option>${rosterOpts}</select>`
@@ -1203,7 +1203,7 @@ function renderConfirmScorersList(id) {
     // Update the counter label
     const counter = document.getElementById('cscore-count-' + id);
     if (counter) {
-        const needed = parseInt(counter.closest('label').textContent.match(/add exactly (\d+)/)?.[1] || 0);
+        const needed = parseInt(counter.dataset.needed || 0);
         counter.textContent = `(${total}/${needed})`;
         counter.style.color = total === needed ? '#27ae60' : '#c0392b';
     }
