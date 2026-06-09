@@ -1076,10 +1076,15 @@ async function submitScore() {
             const opp = val;
             const scorersArray = [];
             Object.entries(currentScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) scorersArray.push(p); });
-            // Warn if goals scored but no scorers added
-            if (score1 > 0 && scorersArray.length === 0) {
-                const proceed = confirm(`You scored ${score1} goal${score1>1?'s':''} but haven't added any goalscorers. Submit anyway?`);
-                if (!proceed) { btn.disabled = false; btn.innerHTML = '✓ Submit Score'; return; }
+            // Enforce exact scorer count
+            if (score1 > 0 && scorersArray.length !== score1) {
+                const diff = score1 - scorersArray.length;
+                if (diff > 0) {
+                    alert(`Please add ${diff} more goalscorer${diff>1?'s':''} — you scored ${score1} goal${score1>1?'s':''} but have added ${scorersArray.length}.`);
+                } else {
+                    alert(`You've added ${scorersArray.length} goalscorers but only scored ${score1} goal${score1>1?'s':''}. Please remove ${-diff}.`);
+                }
+                btn.disabled = false; btn.innerHTML = '✓ Submit Score'; return;
             }
             const oppScorersArray = [];
             Object.entries(oppScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) oppScorersArray.push(p); });
