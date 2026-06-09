@@ -1385,10 +1385,12 @@ function calcStandings(group, teams, confirmed) {
 }
 
 function renderTopScorers(elId, confirmed) {
+    // Include scorers from all non-disputed scores (pending + confirmed)
+    const allValid = allScores.filter(s => s.status === 'confirmed' || s.status === 'pending');
     const tally = {};
-    confirmed.forEach(s => {
+    allValid.forEach(s => {
         const scorers = (Array.isArray(s.scorers) ? s.scorers : []).concat(Array.isArray(s.scorers2) ? s.scorers2 : []);
-        scorers.forEach(p => { tally[p] = (tally[p]||0) + 1; });
+        scorers.forEach(p => { if (p) tally[p] = (tally[p]||0) + 1; });
     });
     const top = Object.entries(tally).sort((a,b) => b[1]-a[1]).slice(0,10);
     document.getElementById(elId).innerHTML = top.length
