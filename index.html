@@ -1143,7 +1143,7 @@ function renderConfirmList() {
             <small style="display:block;color:#888;margin-top:2px;">Submitted by ${s.submittedBy}</small>
             ${myScore > 0 ? `
             <div style="margin-top:10px;">
-                <label style="font-size:12px;font-weight:600;">Your goalscorers (you scored ${myScore}):</label>
+                <label style="font-size:12px;font-weight:600;">Your goalscorers — add exactly ${myScore} <span id="cscore-count-${s.id}" style="color:#c0392b;">(0/${myScore})</span>:</label>
                 <div style="display:flex;gap:6px;margin-top:4px;">
                     ${myRoster.length
                         ? `<select id="cscorer-${s.id}" style="flex:1;padding:8px;font-size:14px;"><option value="">-- Player --</option>${rosterOpts}</select>`
@@ -1186,11 +1186,19 @@ function renderConfirmScorersList(id) {
     const el = document.getElementById('cscorers-list-' + id);
     if (!el) return;
     const scorers = confirmScorers[id] || {};
+    const total = Object.values(scorers).reduce((a, b) => a + b, 0);
     el.innerHTML = Object.entries(scorers).map(([p, n]) =>
         `<span class="player-badge" onclick="removeConfirmScorer('${id}','${p.replace(/'/g,"\\'")}')">
             ${p}${n > 1 ? ' ×' + n : ''} ✕
         </span>`
     ).join('');
+    // Update the counter label
+    const counter = document.getElementById('cscore-count-' + id);
+    if (counter) {
+        const needed = parseInt(counter.closest('label').textContent.match(/add exactly (\d+)/)?.[1] || 0);
+        counter.textContent = `(${total}/${needed})`;
+        counter.style.color = total === needed ? '#27ae60' : '#c0392b';
+    }
 }
 
 async function confirmScore(id, status, myScore) {
@@ -1203,6 +1211,14 @@ async function confirmScore(id, status, myScore) {
     Object.entries(confirmScorers[id] || {}).forEach(function([p, n]) {
         for (var i = 0; i < n; i++) scorersArray.push(p);
     });
+
+    // Enforce correct number of scorers before confirming
+    if (status === 'confirmed' && myScore > 0 && scorersArray.length !== myScore) {
+        const added = scorersArray.length;
+        const needed = myScore - added;
+        alert(`Please add ${needed > 0 ? needed + ' more' : 'only ' + myScore} goalscorer${myScore > 1 ? 's' : ''} — you scored ${myScore} goal${myScore > 1 ? 's' : ''} but have added ${added}.`);
+        return;
+    }
 
     try {
         const res = await apiPost({ action: 'updateStatus', id, status, note, confirmScorers: scorersArray });
