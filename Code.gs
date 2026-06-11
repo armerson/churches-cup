@@ -6,7 +6,6 @@ function doGet(e) {
   if (action === 'getScores')        result = getScores();
   else if (action === 'getRosters')  result = getRosters();
   else if (action === 'getKO')       result = getKOMatches();
-  else if (action === 'getPins')     result = getPins();
   else if (action === 'getSchedule') result = getSchedule();
   else if (action === 'getNotices')  result = getNotices();
   else                               result = { error: 'Unknown action' };
@@ -15,18 +14,105 @@ function doGet(e) {
 
 function doPost(e) {
   var data = JSON.parse(e.postData.contents);
+  // Serialise writes so simultaneous submissions can't race past duplicate checks
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+  } catch (err) {
+    return toJson({ error: 'Server busy — please try again in a few seconds.' });
+  }
+  try {
+    return toJson(routePost(data));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function routePost(data) {
   var result;
-  if (data.action === 'submitScore')        result = submitScore(data);
-  else if (data.action === 'updateStatus')  result = updateStatus(data);
-  else if (data.action === 'saveRoster')    result = saveRoster(data);
-  else if (data.action === 'saveKO')        result = saveKOMatch(data);
-  else if (data.action === 'editScore')     result = editScore(data);
-  else if (data.action === 'updatePin')     result = updatePin(data);
-  else if (data.action === 'setFixtureTime') result = setFixtureTime(data);
-  else if (data.action === 'postNotice')     result = postNotice(data);
-  else if (data.action === 'deleteNotice')   result = deleteNotice(data);
+  if (data.action === 'login')              result = login(data);
+  else if (data.action === 'loginAdmin')    result = loginAdmin(data);
+  else if (data.action === 'submitScore')   result = requireTeamAuth(data, data.team1) || submitScore(data);
+  else if (data.action === 'updateStatus')  result = authorizeStatusUpdate(data) || updateStatus(data);
+  else if (data.action === 'saveRoster')    result = requireTeamAuth(data, data.team) || saveRoster(data);
+  else if (data.action === 'saveKO')        result = authorizeKO(data) || saveKOMatch(data);
+  else if (data.action === 'editScore')     result = requireAdminAuth(data) || editScore(data);
+  else if (data.action === 'updatePin')     result = requireTeamAuth(data, data.team, data.currentPin) || updatePin(data);
+  else if (data.action === 'setFixtureTime') result = requireAdminAuth(data) || setFixtureTime(data);
+  else if (data.action === 'postNotice')     result = requireAdminAuth(data) || postNotice(data);
+  else if (data.action === 'deleteNotice')   result = requireAdminAuth(data) || deleteNotice(data);
   else                                      result = { error: 'Unknown action' };
-  return toJson(result);
+  return result;
+}
+
+var ADMIN_PIN = '1234';
+var DEFAULT_TEAM_PINS = {
+  'Covenant':'0001','Mourne':'0002','Spain Madrid':'0003','Waringstown Presbyterian Church':'0004',
+  'Bethany FC':'0005','Ballymagerney FPC':'0006','YAKAAR ACADEMY':'0007','Sloan Street Presbyterian':'0008',
+  'Grace Community Church Richhill':'0009','Portabello Baptist':'0010','NTPC':'0011','Portadown Elim':'0012',
+  'Eagles':'0013','Acpc fc':'0014','Lurgan Elim':'0015','Ulster wonders fc':'0016',
+  'Craigavon PC':'0017','Newmills':'0018','Bleary FC':'0019','Benburb Ballers':'0020',
+  'Killicomaine Baptist church':'0021','CGR FC':'0022','CFPC Originals':'0023','Gortmerron Goats':'0024',
+  'Ancora Church Football':'0025','Legacurry Presbyterian':'0026','Emmanuel Baptist':'0027','Downshire Church':'0028',
+  'Derry/Edenderry':'0029','The Blues':'0030','Ardtrea Aardvarks':'0031','Team Black':'0032'
+};
+
+function login(data) {
+  return validTeamPin(data.team, data.pin) ? { success: true, team: data.team } : { error: 'Invalid team or code.' };
+}
+
+function loginAdmin(data) {
+  return String(data.pin || '') === ADMIN_PIN ? { success: true } : { error: 'Invalid organizer code.' };
+}
+
+function requireTeamAuth(data, team, pinOverride) {
+  if (!team || String(data.authTeam || '') !== String(team)) return { error: 'Not authorised for this team.' };
+  var pin = pinOverride !== undefined ? pinOverride : data.authPin;
+  return validTeamPin(team, pin) ? null : { error: 'Invalid or expired team PIN. Please log in again.' };
+}
+
+function requireAdminAuth(data) {
+  return String(data.adminPin || '') === ADMIN_PIN ? null : { error: 'Admin authorisation required.' };
+}
+
+function authorizeStatusUpdate(data) {
+  var score = findScoreById(data.id);
+  if (!score) return { error: 'Score not found' };
+  var team = String(data.authTeam || '');
+  if (team !== String(score.team1) && team !== String(score.team2)) return { error: 'Not authorised for this score.' };
+  if (team === String(score.submittedBy)) return { error: 'Submitting team cannot confirm its own score.' };
+  return requireTeamAuth(data, team);
+}
+
+function authorizeKO(data) {
+  var adminError = requireAdminAuth(data);
+  if (!adminError) return null;
+  var team = String(data.authTeam || '');
+  if (team && (team === String(data.team1) || team === String(data.team2))) return requireTeamAuth(data, team);
+  return adminError;
+}
+
+function validTeamPin(team, pin) {
+  return !!team && String(pin || '') === getPinForTeam(team);
+}
+
+function getPinForTeam(team) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Pins');
+  if (sheet) {
+    var rows = sheet.getDataRange().getValues();
+    for (var i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(team) && rows[i][1]) return String(rows[i][1]);
+    }
+  }
+  return DEFAULT_TEAM_PINS[team] || '';
+}
+
+function findScoreById(id) {
+  var scores = getScores();
+  for (var i = 0; i < scores.length; i++) {
+    if (String(scores[i].id) === String(id)) return scores[i];
+  }
+  return null;
 }
 
 // ---------- Group Scores ----------
@@ -51,6 +137,7 @@ function getScores() {
 }
 
 function submitScore(data) {
+  data.submittedBy = data.authTeam;
   var sheet = getOrCreateSheet('Scores', [
     'id','group','team1','team2','score1','score2','scorers','submittedBy','status','timestamp'
   ]);
@@ -158,6 +245,7 @@ function getKOMatches() {
 }
 
 function saveKOMatch(data) {
+  if (data.winner && data.winner !== data.team1 && data.winner !== data.team2) return { error: 'Winner must be one of the match teams.' };
   var sheet = getOrCreateSheet('KOMatches', [
     'matchId','competition','round','matchNum',
     'team1','team2','score1','score2','penScore1','penScore2','winner','timestamp'
@@ -256,20 +344,6 @@ function setFixtureTime(data) {
   }
   sheet.appendRow([data.matchKey, data.time || '', data.pitch || '', data.notes || '']);
   return { success: true };
-}
-
-// ---------- PINs ----------
-
-function getPins() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Pins');
-  if (!sheet) return {};
-  var rows = sheet.getDataRange().getValues();
-  if (rows.length < 2) return {};
-  var result = {};
-  rows.slice(1).forEach(function(row) {
-    if (row[0] && row[1]) result[String(row[1])] = String(row[0]);
-  });
-  return result;
 }
 
 function updatePin(data) {

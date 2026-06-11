@@ -567,22 +567,11 @@ const groups = {
     H: ["Derry/Edenderry","The Blues","Ardtrea Aardvarks","Team Black"]
 };
 
-// 4-digit login codes per team (share privately with each team manager)
-let codes = {
-    "1234":"admin",
-    "0001":"Covenant","0002":"Mourne","0003":"Spain Madrid","0004":"Waringstown Presbyterian Church",
-    "0005":"Bethany FC","0006":"Ballymagerney FPC","0007":"YAKAAR ACADEMY","0008":"Sloan Street Presbyterian",
-    "0009":"Grace Community Church Richhill","0010":"Portabello Baptist","0011":"NTPC","0012":"Portadown Elim",
-    "0013":"Eagles","0014":"Acpc fc","0015":"Lurgan Elim","0016":"Ulster wonders fc",
-    "0017":"Craigavon PC","0018":"Newmills","0019":"Bleary FC","0020":"Benburb Ballers",
-    "0021":"Killicomaine Baptist church","0022":"CGR FC","0023":"CFPC Originals","0024":"Gortmerron Goats",
-    "0025":"Ancora Church Football","0026":"Legacurry Presbyterian","0027":"Emmanuel Baptist","0028":"Downshire Church",
-    "0029":"Derry/Edenderry","0030":"The Blues","0031":"Ardtrea Aardvarks","0032":"Team Black"
-};
-
 // ── STATE (session only — not scores) ─────────────────────────────────────────
 let currentTeam = localStorage.getItem('cc_team') || '';
+let currentPin = localStorage.getItem('cc_pin') || '';
 let isOrganizer = false;
+let adminPin = sessionStorage.getItem('cc_admin_pin') || '';
 let isPlayerView = false;
 let currentScorers = {};  // { playerName: goalCount }
 let oppScorers = {};
@@ -593,14 +582,6 @@ let allNotices = [];      // [ { id, message, timestamp } ]
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
-    // Load server PINs and merge over hardcoded defaults
-    try {
-        const serverPins = await apiGet('getPins');
-        if (serverPins && typeof serverPins === 'object') {
-            Object.assign(codes, serverPins);
-        }
-    } catch(e) { /* fall back to hardcoded codes */ }
-
     // Populate team dropdown
     const sel = document.getElementById('setupTeam');
     Object.values(groups).flat().forEach(t => sel.appendChild(new Option(t, t)));
@@ -611,46 +592,75 @@ async function init() {
         container.innerHTML += `<div class="form-group"><label>Player ${i}</label><input type="text" class="player-input" placeholder="Name"></div>`;
     }
 
-    if (currentTeam) {
+    if (currentTeam && currentPin) {
         document.getElementById('setupTeam').value = currentTeam;
         isOrganizer = false;
         await refreshData();
         updateUI();
         showTab('roster', null);
+    } else {
+        currentTeam = '';
+        currentPin = '';
+        localStorage.removeItem('cc_team');
+        localStorage.removeItem('cc_pin');
     }
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
-function submitSetup() {
+async function submitSetup() {
     const team = document.getElementById('setupTeam').value;
     const code = document.getElementById('setupCode').value;
-    if (!team || codes[code] !== team) {
+    if (!team || !/^\d{4}$/.test(code)) {
         showAlert('setupMsg', 'Invalid team or code.', 'error');
         return;
     }
-    currentTeam = team;
-    isOrganizer = false;
-    localStorage.setItem('cc_team', team);
-    updateUI();
-    showTab('roster', null);
-    refreshData();
+    try {
+        const res = await apiPost({ action: 'login', team, pin: code });
+        if (res.error) {
+            showAlert('setupMsg', res.error, 'error');
+            return;
+        }
+        currentTeam = team;
+        currentPin = code;
+        isOrganizer = false;
+        localStorage.setItem('cc_team', team);
+        localStorage.setItem('cc_pin', code);
+        updateUI();
+        showTab('roster', null);
+        refreshData();
+    } catch(e) {
+        showAlert('setupMsg', 'Login failed — check connection.', 'error');
+    }
 }
 
-function submitOrganizerSetup() {
-    if (document.getElementById('organizerCode').value !== '1234') {
-        alert('Invalid organizer code.');
-        return;
+async function submitOrganizerSetup() {
+    const code = document.getElementById('organizerCode').value;
+    try {
+        const res = await apiPost({ action: 'loginAdmin', pin: code });
+        if (res.error) {
+            alert(res.error);
+            return;
+        }
+        currentTeam = 'ORGANIZER';
+        currentPin = '';
+        adminPin = code;
+        isOrganizer = true;
+        sessionStorage.setItem('cc_admin_pin', code);
+        localStorage.removeItem('cc_team');
+        localStorage.removeItem('cc_pin');
+        refreshData().then(() => { updateUI(); showTab('organizer', null); });
+    } catch(e) {
+        alert('Organizer login failed — check connection.');
     }
-    currentTeam = 'ORGANIZER';
-    isOrganizer = true;
-    localStorage.removeItem('cc_team');
-    refreshData().then(() => { updateUI(); showTab('organizer', null); });
 }
 
 function logout() {
     currentTeam = '';
+    currentPin = '';
     isOrganizer = false;
     localStorage.removeItem('cc_team');
+    localStorage.removeItem('cc_pin');
+    sessionStorage.removeItem('cc_admin_pin');
     location.reload();
 }
 
@@ -658,7 +668,7 @@ async function changePin() {
     const current = document.getElementById('changePinCurrent').value;
     const newPin  = document.getElementById('changePinNew').value;
     const confirm = document.getElementById('changePinConfirm').value;
-    if (codes[current] !== currentTeam) {
+    if (current !== currentPin) {
         showAlert('changePinMsg', 'Current PIN is incorrect.', 'error');
         return;
     }
@@ -674,13 +684,17 @@ async function changePin() {
     btn.innerHTML = '<span class="spinner"></span>Saving…';
     btn.disabled = true;
     try {
-        await apiPost({ action: 'updatePin', team: currentTeam, newPin });
-        delete codes[current];
-        codes[newPin] = currentTeam;
-        document.getElementById('changePinCurrent').value = '';
-        document.getElementById('changePinNew').value = '';
-        document.getElementById('changePinConfirm').value = '';
-        showAlert('changePinMsg', '✓ PIN saved! Your new code is: ' + newPin, 'success');
+        const res = await apiPost({ action: 'updatePin', team: currentTeam, currentPin: current, newPin });
+        if (res.error) {
+            showAlert('changePinMsg', res.error, 'error');
+        } else {
+            currentPin = newPin;
+            localStorage.setItem('cc_pin', newPin);
+            document.getElementById('changePinCurrent').value = '';
+            document.getElementById('changePinNew').value = '';
+            document.getElementById('changePinConfirm').value = '';
+            showAlert('changePinMsg', '✓ PIN saved! Your new code is: ' + newPin, 'success');
+        }
     } catch(e) {
         showAlert('changePinMsg', 'Failed to save — check connection.', 'error');
     }
@@ -800,7 +814,7 @@ function renderNoticeBoard() {
     el.style.display = 'block';
     el.innerHTML = allNotices.map(n => `
         <div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:6px;padding:10px 14px;margin-bottom:6px;">
-            <div style="font-size:13px;color:#333;">${n.message}</div>
+            <div style="font-size:13px;color:#333;">${escapeHtml(n.message)}</div>
             <div style="font-size:11px;color:#aaa;margin-top:4px;">${n.timestamp ? new Date(n.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</div>
         </div>`).join('');
     // Also update admin list if organiser is viewing
@@ -809,7 +823,7 @@ function renderNoticeBoard() {
         adminEl.innerHTML = allNotices.length
             ? allNotices.map(n => `
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;background:#f8f9fa;border-radius:6px;padding:8px 10px;margin-bottom:6px;gap:8px;">
-                    <div style="font-size:13px;flex:1;">${n.message}<div style="font-size:11px;color:#aaa;margin-top:2px;">${n.timestamp ? new Date(n.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</div></div>
+                    <div style="font-size:13px;flex:1;">${escapeHtml(n.message)}<div style="font-size:11px;color:#aaa;margin-top:2px;">${n.timestamp ? new Date(n.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</div></div>
                     <button onclick="deleteNotice('${n.id}')" style="width:auto;padding:3px 8px;font-size:11px;background:#e74c3c;color:white;margin-top:0;flex-shrink:0;">✕</button>
                 </div>`).join('')
             : '<div style="font-size:13px;color:#aaa;">No notices posted yet.</div>';
@@ -822,7 +836,8 @@ async function postNotice() {
     if (!msg) { el.style.color='#e74c3c'; el.textContent = 'Please enter a message.'; return; }
     el.style.color='#888'; el.textContent = 'Posting…';
     try {
-        await apiPost({ action: 'postNotice', message: msg });
+        const res = await apiPost({ action: 'postNotice', message: msg });
+        if (res.error) { el.style.color='#e74c3c'; el.textContent = res.error; return; }
         document.getElementById('noticeInput').value = '';
         el.style.color='green'; el.textContent = '✓ Posted!';
         setTimeout(() => el.textContent = '', 2000);
@@ -832,7 +847,8 @@ async function postNotice() {
 
 async function deleteNotice(id) {
     try {
-        await apiPost({ action: 'deleteNotice', id });
+        const res = await apiPost({ action: 'deleteNotice', id });
+        if (res.error) { alert(res.error); return; }
         await refreshData();
     } catch(e) { console.error('deleteNotice', e); }
 }
@@ -857,11 +873,15 @@ async function saveRoster() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Saving…';
     try {
-        await apiPost({ action: 'saveRoster', team: currentTeam, players });
-        localStorage.setItem(`cc_roster_${currentTeam}`, JSON.stringify(players));
-        allRosters[currentTeam] = players;
-        renderRosterDisplay(players);
-        showAlert('rosterMsg', '✓ Roster saved!', 'success');
+        const res = await apiPost({ action: 'saveRoster', team: currentTeam, players });
+        if (res.error) {
+            showAlert('rosterMsg', res.error, 'error');
+        } else {
+            localStorage.setItem(`cc_roster_${currentTeam}`, JSON.stringify(players));
+            allRosters[currentTeam] = players;
+            renderRosterDisplay(players);
+            showAlert('rosterMsg', '✓ Roster saved!', 'success');
+        }
     } catch(e) {
         showAlert('rosterMsg', 'Save failed — check connection.', 'error');
     }
@@ -1172,6 +1192,8 @@ function renderConfirmList() {
             </div>
         </div>`;
     }).join('');
+    // Restore any scorers already added (auto-refresh re-renders this list)
+    pending.forEach(s => renderConfirmScorersList(s.id));
 }
 
 // tracks scorers per pending score card: { scoreId: { playerName: count } }
@@ -1233,16 +1255,22 @@ async function confirmScore(id, status, myScore) {
         return;
     }
 
+    const card = document.getElementById('confirm-card-' + id);
+    const cardBtns = card ? card.querySelectorAll('button') : [];
+    cardBtns.forEach(b => b.disabled = true);
     try {
         const res = await apiPost({ action: 'updateStatus', id, status, note, confirmScorers: scorersArray });
-        if (res.error) { alert(res.error); return; }
+        if (res.error) { alert(res.error); cardBtns.forEach(b => b.disabled = false); return; }
         delete confirmScorers[id];
         await refreshData();
         renderConfirmList();
         renderLeaderboard();
         renderMyResults();
         updateConfirmBadge();
-    } catch(e) { alert('Network error — please try again.'); }
+    } catch(e) {
+        alert('Network error — please try again.');
+        cardBtns.forEach(b => b.disabled = false);
+    }
 }
 
 function updateConfirmBadge() {
@@ -1302,8 +1330,10 @@ function renderFixtures() {
 
         const opponents = teammates.filter(t => t !== currentTeam);
         opponents.sort((a, b) => {
-            const ta = groupSchedule[scheduleKey(currentTeam, a)] || '99:99';
-            const tb = groupSchedule[scheduleKey(currentTeam, b)] || '99:99';
+            const keyA = scheduleKey(currentTeam, a);
+            const keyB = scheduleKey(currentTeam, b);
+            const ta = (allSchedule[keyA] && allSchedule[keyA].time) || groupSchedule[keyA] || '99:99';
+            const tb = (allSchedule[keyB] && allSchedule[keyB].time) || groupSchedule[keyB] || '99:99';
             return ta.localeCompare(tb);
         });
         opponents.forEach(opp => {
@@ -1313,7 +1343,7 @@ function renderFixtures() {
                 (s.status === 'pending' || s.status === 'confirmed')
             );
             const key = scheduleKey(currentTeam, opp);
-            const kickoff = groupSchedule[key] || '';
+            const kickoff = (allSchedule[key] && allSchedule[key].time) || groupSchedule[key] || '';
             const myScore  = result ? (result.team1 === currentTeam ? result.score1 : result.score2) : null;
             const oppScore = result ? (result.team1 === currentTeam ? result.score2 : result.score1) : null;
             const statusClass = result ? (result.status === 'confirmed' ? 'confirmed' : 'pending') : '';
@@ -1509,7 +1539,8 @@ async function saveFixtureTime(key, group) {
     const msg   = document.getElementById('ftime-msg-' + key);
     msg.textContent = 'Saving…';
     try {
-        await apiPost({ action: 'setFixtureTime', matchKey: key, time, pitch });
+        const res = await apiPost({ action: 'setFixtureTime', matchKey: key, time, pitch });
+        if (res.error) { msg.textContent = res.error; return; }
         allSchedule[key] = { time, pitch };
         msg.textContent = '✓ Saved';
         setTimeout(() => { msg.textContent = ''; }, 2000);
@@ -1795,17 +1826,14 @@ function openEditScore(id, t1, t2, s1, s2) {
 async function saveEditedScore() {
     const modal = document.getElementById('editScoreModal');
     const id = modal.dataset.scoreId;
-    const s1 = parseInt(document.getElementById('editScore1').value) || 0;
-    const s2 = parseInt(document.getElementById('editScore2').value) || 0;
+    const s1 = parseInt(document.getElementById('editScore1').value, 10);
+    const s2 = parseInt(document.getElementById('editScore2').value, 10);
+    if (isNaN(s1) || isNaN(s2)) { alert('Please enter both scores.'); return; }
     const parseScorers = val => val.split(',').map(s => s.trim()).filter(s => s);
     const scorers1 = parseScorers(document.getElementById('editScorers1').value);
     const scorers2 = parseScorers(document.getElementById('editScorers2').value);
     try {
-        const res = await fetch(API_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'editScore', id, score1: s1, score2: s2, scorers: scorers1, scorers2 })
-        });
-        const json = await res.json();
+        const json = await apiPost({ action: 'editScore', id, score1: s1, score2: s2, scorers: scorers1, scorers2 });
         if (json.error) { alert('Error: ' + json.error); return; }
         modal.style.display = 'none';
         await refreshData();
@@ -1853,7 +1881,7 @@ async function submitKOResult() {
     let winner;
     if (s1 > s2) winner = t1;
     else if (s2 > s1) winner = t2;
-    else winner = p1 > p2 ? t1 : t2;  // penalty decider
+    else winner = p1 > p2 ? t1 : (p2 > p1 ? t2 : '');
 
     const parts = koModalMatchId.split('-');
     const payload = {
@@ -1870,7 +1898,8 @@ async function submitKOResult() {
     };
 
     try {
-        await apiPost(payload);
+        const res = await apiPost(payload);
+        if (res.error) { alert(res.error); return; }
         // update local cache immediately
         const existing = allKO.findIndex(m => m.matchId === koModalMatchId);
         if (existing >= 0) allKO[existing] = {...allKO[existing], ...payload};
@@ -1890,9 +1919,25 @@ async function apiGet(action) {
 }
 
 async function apiPost(body) {
-    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) });
+    const payload = { ...body };
+    if (isOrganizer && adminPin && !payload.adminPin) payload.adminPin = adminPin;
+    if (!isOrganizer && currentTeam && currentPin && !payload.authPin) {
+        payload.authTeam = currentTeam;
+        payload.authPin = currentPin;
+    }
+    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
     if (!res.ok) throw new Error(res.statusText);
     return res.json();
+}
+
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[ch]));
 }
 
 function showAlert(elId, msg, type) {
