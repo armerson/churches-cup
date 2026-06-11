@@ -207,7 +207,7 @@
                         <div class="form-group" style="flex:1;"><label>Opp Pens</label><input type="number" id="penScore2" value="0" min="0" max="99"></div>
                     </div>
                 </div>
-                <div style="font-size:12px;color:#888;background:#f0f5ff;padding:8px 12px;border-radius:6px;margin-bottom:12px;">ℹ️ The opposition will add their own goalscorers when they confirm the score.</div>
+                <div id="oppScorersNote" style="font-size:12px;color:#888;background:#f0f5ff;padding:8px 12px;border-radius:6px;margin-bottom:12px;">ℹ️ The opposition will add their own goalscorers when they confirm the score.</div>
                 <button onclick="submitScore()" class="success" id="submitScoreBtn">✓ Submit Score</button>
                 <div id="scoreMsg" style="margin-top:8px;"></div>
             </div>
@@ -311,6 +311,14 @@
                         <span style="color:#666;">pen</span>
                         <input type="number" id="koPen2" min="0" max="99" value="0" style="flex:1;text-align:center;font-size:18px;font-weight:bold;padding:8px;">
                     </div>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:3px;"><span id="koT1ScorersLabel"></span> goalscorers (comma-separated)</label>
+                    <input type="text" id="koScorers1" placeholder="e.g. Smith, Smith, Jones" style="width:100%;padding:8px;font-size:13px;">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:3px;"><span id="koT2ScorersLabel"></span> goalscorers (comma-separated)</label>
+                    <input type="text" id="koScorers2" placeholder="e.g. Smith, Smith, Jones" style="width:100%;padding:8px;font-size:13px;">
                 </div>
                 <div style="display:flex;gap:8px;margin-top:5px;">
                     <button class="success" onclick="submitKOResult()" style="flex:1;margin-top:0;">✓ Save Result</button>
@@ -948,10 +956,12 @@ function loadMatch() {
         currentKOMatch = { matchId, competition: parts[0], round: parts[1], matchNum: parts[2], t1: m.team1, t2: m.team2 };
         const roundLabel = m.round ? m.round.toUpperCase() : 'KO';
         document.getElementById('matchInfo').innerHTML = `<span style="font-size:11px;background:var(--royal);color:white;padding:2px 6px;border-radius:4px;margin-right:6px;">${roundLabel}</span>${currentTeam} vs ${opp}`;
+        document.getElementById('oppScorersNote').textContent = 'ℹ️ Add your own goalscorers only — the opposition adds theirs when they report, or the organiser can add them.';
     } else {
         opp = val;
         currentKOMatch = null;
         document.getElementById('matchInfo').textContent = `${currentTeam} vs ${opp}`;
+        document.getElementById('oppScorersNote').textContent = 'ℹ️ The opposition will add their own goalscorers when they confirm the score.';
     }
 
     document.getElementById('team1Score').value = '';
@@ -1062,6 +1072,15 @@ async function submitScore() {
         if (currentKOMatch) {
             // Knockout match submission
             const { matchId, competition, round, matchNum, t1, t2 } = currentKOMatch;
+            const koScorers = [];
+            Object.entries(currentScorers).forEach(([p, n]) => { for (let i=0; i<n; i++) koScorers.push(p); });
+            if (score1 > 0 && koScorers.length !== score1) {
+                const diff = score1 - koScorers.length;
+                alert(diff > 0
+                    ? `Please add ${diff} more goalscorer${diff>1?'s':''} — you scored ${score1} goal${score1>1?'s':''} but have added ${koScorers.length}.`
+                    : `You've added ${koScorers.length} goalscorers but only scored ${score1} goal${score1>1?'s':''}. Please remove ${-diff}.`);
+                btn.disabled = false; btn.innerHTML = '✓ Submit Score'; return;
+            }
             const pen1 = parseInt(document.getElementById('penScore1').value) || 0;
             const pen2 = parseInt(document.getElementById('penScore2').value) || 0;
             // Scores are from current team's perspective — normalise to t1/t2
@@ -1078,7 +1097,8 @@ async function submitScore() {
                 action: 'saveKO', matchId, competition, round, matchNum,
                 team1: t1, team2: t2, score1: s1, score2: s2,
                 penScore1: s1 === s2 ? p1 : '', penScore2: s1 === s2 ? p2 : '',
-                winner
+                winner,
+                scorersTeam: currentTeam, scorers: koScorers
             });
             if (res.error) {
                 showAlert('scoreMsg', res.error, 'error');
@@ -1454,6 +1474,11 @@ function renderTopScorers(elId, confirmed) {
     const tally = {};
     allValid.forEach(s => {
         const scorers = (Array.isArray(s.scorers) ? s.scorers : []).concat(Array.isArray(s.scorers2) ? s.scorers2 : []);
+        scorers.forEach(p => { if (p) tally[p] = (tally[p]||0) + 1; });
+    });
+    // Knockout goals count too
+    allKO.forEach(m => {
+        const scorers = (Array.isArray(m.scorers1) ? m.scorers1 : []).concat(Array.isArray(m.scorers2) ? m.scorers2 : []);
         scorers.forEach(p => { if (p) tally[p] = (tally[p]||0) + 1; });
     });
     const top = Object.entries(tally).sort((a,b) => b[1]-a[1]).slice(0,10);
@@ -1851,6 +1876,10 @@ function openKOModal(matchId, t1, t2, label) {
     document.getElementById('koScore2').value = r ? r.score2 : 0;
     document.getElementById('koPen1').value = r ? (r.penScore1 || 0) : 0;
     document.getElementById('koPen2').value = r ? (r.penScore2 || 0) : 0;
+    document.getElementById('koT1ScorersLabel').textContent = t1;
+    document.getElementById('koT2ScorersLabel').textContent = t2;
+    document.getElementById('koScorers1').value = r && Array.isArray(r.scorers1) ? r.scorers1.join(', ') : '';
+    document.getElementById('koScorers2').value = r && Array.isArray(r.scorers2) ? r.scorers2.join(', ') : '';
     const tied = r && Number(r.score1) === Number(r.score2);
     document.getElementById('koPenRow').style.display = tied ? 'block' : 'none';
     document.getElementById('koModal').style.display = 'flex';
@@ -1884,6 +1913,7 @@ async function submitKOResult() {
     else winner = p1 > p2 ? t1 : (p2 > p1 ? t2 : '');
 
     const parts = koModalMatchId.split('-');
+    const parseScorers = val => val.split(',').map(x => x.trim()).filter(x => x);
     const payload = {
         action: 'saveKO',
         matchId: koModalMatchId,
@@ -1894,7 +1924,9 @@ async function submitKOResult() {
         score1: s1, score2: s2,
         penScore1: s1 === s2 ? p1 : '',
         penScore2: s1 === s2 ? p2 : '',
-        winner: winner
+        winner: winner,
+        scorers1: parseScorers(document.getElementById('koScorers1').value),
+        scorers2: parseScorers(document.getElementById('koScorers2').value)
     };
 
     try {

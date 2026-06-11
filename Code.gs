@@ -240,6 +240,12 @@ function getKOMatches() {
   return rows.slice(1).map(function(row) {
     var obj = {};
     headers.forEach(function(h, i) { obj[h] = row[i]; });
+    if (obj.scorers1 && typeof obj.scorers1 === 'string') {
+      try { obj.scorers1 = JSON.parse(obj.scorers1); } catch(err) { obj.scorers1 = []; }
+    }
+    if (obj.scorers2 && typeof obj.scorers2 === 'string') {
+      try { obj.scorers2 = JSON.parse(obj.scorers2); } catch(err) { obj.scorers2 = []; }
+    }
     return obj;
   });
 }
@@ -254,6 +260,28 @@ function saveKOMatch(data) {
   var headers = rows[0];
   var midCol = headers.indexOf('matchId');
 
+  function ensureCol(name) {
+    var idx = headers.indexOf(name);
+    if (idx === -1) { idx = headers.length; headers.push(name); sheet.getRange(1, idx+1).setValue(name); }
+    return idx;
+  }
+
+  // A team submission carries only its own side's scorers; the organiser
+  // modal carries both. Only the provided sides are written, so one team's
+  // entry never wipes the other's.
+  function writeScorers(rowNum) {
+    var s1, s2;
+    if (data.scorersTeam) {
+      if (String(data.scorersTeam) === String(data.team1)) s1 = data.scorers || [];
+      if (String(data.scorersTeam) === String(data.team2)) s2 = data.scorers || [];
+    } else {
+      s1 = data.scorers1;
+      s2 = data.scorers2;
+    }
+    if (s1 !== undefined) sheet.getRange(rowNum, ensureCol('scorers1')+1).setValue(JSON.stringify(s1));
+    if (s2 !== undefined) sheet.getRange(rowNum, ensureCol('scorers2')+1).setValue(JSON.stringify(s2));
+  }
+
   // Update if exists
   for (var i = 1; i < rows.length; i++) {
     if (String(rows[i][midCol]) === String(data.matchId)) {
@@ -265,6 +293,7 @@ function saveKOMatch(data) {
         data.penScore2 !== undefined ? data.penScore2 : '',
         data.winner, new Date().toISOString()
       ]]);
+      writeScorers(i+1);
       return { success: true };
     }
   }
@@ -278,6 +307,7 @@ function saveKOMatch(data) {
     data.penScore2 !== undefined ? data.penScore2 : '',
     data.winner, new Date().toISOString()
   ]);
+  writeScorers(sheet.getLastRow());
   return { success: true };
 }
 
