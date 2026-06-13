@@ -187,8 +187,7 @@
                     <label>Your Goalscorers</label>
                     <div style="background:#f9f9f9;padding:12px;border-radius:6px;">
                         <div style="display:flex;gap:8px;margin-bottom:8px;">
-                            <select id="scorerSelect" style="flex:1;margin-bottom:0;"><option value="">-- From roster --</option></select>
-                            <button onclick="addScorer()" style="width:auto;padding:8px 14px;margin-top:0;font-size:14px;">+</button>
+                            <select id="scorerSelect" onchange="addScorer()" style="flex:1;margin-bottom:0;"><option value="">-- Tap to add scorer --</option></select>
                         </div>
                         <div style="display:flex;gap:8px;margin-bottom:8px;">
                             <input type="text" id="scorerText" placeholder="Or type a name" style="flex:1;margin-bottom:0;">
@@ -1199,10 +1198,10 @@ function renderConfirmList() {
                 <label style="font-size:12px;font-weight:600;">Your goalscorers — add exactly ${myScore} <span id="cscore-count-${s.id}" data-needed="${myScore}" style="color:#c0392b;">(0/${myScore})</span>:</label>
                 <div style="display:flex;gap:6px;margin-top:4px;">
                     ${myRoster.length
-                        ? `<select id="cscorer-${s.id}" style="flex:1;padding:8px;font-size:14px;"><option value="">-- Player --</option>${rosterOpts}</select>`
-                        : `<input type="text" id="cscorer-${s.id}" placeholder="Scorer name" style="flex:1;padding:8px;font-size:14px;">`
+                        ? `<select id="cscorer-${s.id}" onchange="addConfirmScorer('${s.id}',false)" style="flex:1;padding:8px;font-size:14px;"><option value="">-- Tap to add scorer --</option>${rosterOpts}</select>`
+                        : `<input type="text" id="cscorer-${s.id}" placeholder="Type name then +" style="flex:1;padding:8px;font-size:14px;">`
                     }
-                    <button onclick="addConfirmScorer('${s.id}',${!myRoster.length})" style="width:auto;padding:8px 12px;margin-top:0;font-size:13px;">+</button>
+                    ${!myRoster.length ? `<button onclick="addConfirmScorer('${s.id}',true)" style="width:auto;padding:8px 12px;margin-top:0;font-size:13px;">+</button>` : ''}
                 </div>
                 <div id="cscorers-list-${s.id}" style="margin-top:6px;"></div>
             </div>` : ''}
