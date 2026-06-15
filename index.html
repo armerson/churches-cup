@@ -1276,10 +1276,12 @@ async function confirmScore(id, status, myScore) {
 
     const card = document.getElementById('confirm-card-' + id);
     const cardBtns = card ? card.querySelectorAll('button') : [];
+    const confirmBtn = card ? card.querySelector('button.success') : null;
     cardBtns.forEach(b => b.disabled = true);
+    if (confirmBtn) confirmBtn.innerHTML = '<span class="spinner"></span>Saving…';
     try {
         const res = await apiPost({ action: 'updateStatus', id, status, note, confirmScorers: scorersArray });
-        if (res.error) { alert(res.error); cardBtns.forEach(b => b.disabled = false); return; }
+        if (res.error) { alert(res.error); cardBtns.forEach(b => b.disabled = false); if (confirmBtn) confirmBtn.innerHTML = '✓ Confirm'; return; }
         delete confirmScorers[id];
         await refreshData();
         renderConfirmList();
@@ -1289,6 +1291,7 @@ async function confirmScore(id, status, myScore) {
     } catch(e) {
         alert('Network error — please try again.');
         cardBtns.forEach(b => b.disabled = false);
+        if (confirmBtn) confirmBtn.innerHTML = '✓ Confirm';
     }
 }
 
