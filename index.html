@@ -490,6 +490,7 @@
                 </select>
                 <button onclick="adminClearRoster()" class="danger" style="width:auto;padding:8px 14px;margin-top:0;">Clear</button>
             </div>
+            <button onclick="adminClearAllRosters()" class="danger" style="width:100%;margin-top:8px;background:#7b0000;">✕ Clear ALL Rosters</button>
             <div id="clearRosterMsg" style="margin-top:6px;font-size:13px;"></div>
         </div>
         <div class="card" style="margin-top:12px;">
@@ -869,6 +870,24 @@ async function deleteNotice(id) {
         if (res.error) { alert(res.error); return; }
         await refreshData();
     } catch(e) { console.error('deleteNotice', e); }
+}
+
+async function adminClearAllRosters() {
+    const pin = prompt('Enter your organiser PIN to clear ALL rosters:');
+    if (!pin) return;
+    if (pin !== adminPin) { showAlert('clearRosterMsg', 'Incorrect PIN.', 'error'); return; }
+    if (!confirm('This will wipe every team\'s roster. Are you sure?')) return;
+    const allTeams = Object.values(groups).flat();
+    showAlert('clearRosterMsg', 'Clearing…', 'info');
+    let failed = 0;
+    for (const team of allTeams) {
+        try {
+            await apiPost({ action: 'saveRoster', team, players: [] });
+            localStorage.removeItem(`cc_roster_${team}`);
+        } catch(e) { failed++; }
+    }
+    allRosters = {};
+    showAlert('clearRosterMsg', failed ? `Done — ${failed} teams failed, try again.` : '✓ All rosters cleared.', failed ? 'error' : 'success');
 }
 
 async function adminClearRoster() {
