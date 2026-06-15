@@ -37,6 +37,7 @@ function routePost(data) {
   else if (data.action === 'saveRoster')    result = saveRoster(data);
   else if (data.action === 'saveKO')        result = authorizeKO(data) || saveKOMatch(data);
   else if (data.action === 'editScore')     result = requireAdminAuth(data) || editScore(data);
+  else if (data.action === 'deleteScore')   result = requireAdminAuth(data) || deleteScore(data);
   else if (data.action === 'updatePin')     result = requireTeamAuth(data, data.team, data.currentPin) || updatePin(data);
   else if (data.action === 'setFixtureTime') result = requireAdminAuth(data) || setFixtureTime(data);
   else if (data.action === 'postNotice')     result = requireAdminAuth(data) || postNotice(data);
@@ -221,6 +222,20 @@ function editScore(data) {
       sheet.getRange(i+1, statusCol+1).setValue('confirmed');
       if (data.scorers)  sheet.getRange(i+1, ensureCol('scorers')+1).setValue(JSON.stringify(data.scorers));
       if (data.scorers2) sheet.getRange(i+1, ensureCol('scorers2')+1).setValue(JSON.stringify(data.scorers2));
+      return { success: true };
+    }
+  }
+  return { error: 'Score not found' };
+}
+
+function deleteScore(data) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Scores');
+  if (!sheet) return { error: 'No Scores sheet' };
+  var rows = sheet.getDataRange().getValues();
+  var idCol = rows[0].indexOf('id');
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][idCol]) === String(data.id)) {
+      sheet.deleteRow(i + 1);
       return { success: true };
     }
   }
