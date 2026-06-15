@@ -874,7 +874,9 @@ async function deleteNotice(id) {
 async function adminClearRoster() {
     const team = document.getElementById('clearRosterTeam').value;
     if (!team) { showAlert('clearRosterMsg', 'Choose a team first.', 'error'); return; }
-    if (!confirm(`Clear the roster for ${team}? This cannot be undone.`)) return;
+    const pin = prompt('Enter your organiser PIN to confirm:');
+    if (!pin) return;
+    if (pin !== adminPin) { showAlert('clearRosterMsg', 'Incorrect PIN.', 'error'); return; }
     try {
         const res = await apiPost({ action: 'saveRoster', team, players: [] });
         if (res.error) { showAlert('clearRosterMsg', res.error, 'error'); return; }
