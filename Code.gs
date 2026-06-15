@@ -34,7 +34,7 @@ function routePost(data) {
   else if (data.action === 'loginAdmin')    result = loginAdmin(data);
   else if (data.action === 'submitScore')   result = requireTeamAuth(data, data.team1) || submitScore(data);
   else if (data.action === 'updateStatus')  result = authorizeStatusUpdate(data) || updateStatus(data);
-  else if (data.action === 'saveRoster')    result = requireTeamAuth(data, data.team) || saveRoster(data);
+  else if (data.action === 'saveRoster')    result = saveRoster(data);
   else if (data.action === 'saveKO')        result = authorizeKO(data) || saveKOMatch(data);
   else if (data.action === 'editScore')     result = requireAdminAuth(data) || editScore(data);
   else if (data.action === 'updatePin')     result = requireTeamAuth(data, data.team, data.currentPin) || updatePin(data);
