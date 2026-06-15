@@ -888,10 +888,21 @@ async function adminClearRoster() {
 
 // ── ROSTER ────────────────────────────────────────────────────────────────────
 function loadRosterInputs() {
-    // Server takes priority; fall back to localStorage if server has nothing for this team
-    const serverPlayers = allRosters[currentTeam] || [];
+    const serverPlayers = allRosters[currentTeam]; // undefined = never fetched; [] = explicitly cleared
     const localPlayers  = JSON.parse(localStorage.getItem(`cc_roster_${currentTeam}`) || '[]');
-    const players = serverPlayers.length ? serverPlayers : localPlayers;
+    let players;
+    if (Array.isArray(serverPlayers) && serverPlayers.length > 0) {
+        // Server has data — use it and sync local
+        players = serverPlayers;
+        localStorage.setItem(`cc_roster_${currentTeam}`, JSON.stringify(players));
+    } else if (Array.isArray(serverPlayers) && serverPlayers.length === 0) {
+        // Server explicitly returned empty — admin cleared it, wipe local too
+        players = [];
+        localStorage.removeItem(`cc_roster_${currentTeam}`);
+    } else {
+        // Server hasn't returned anything for this team yet — fall back to local
+        players = localPlayers;
+    }
     const inputs = document.querySelectorAll('.player-input');
     inputs.forEach((inp, i) => inp.value = players[i] || '');
     renderRosterDisplay(players);
