@@ -482,6 +482,17 @@
             <div id="orgTopScorersContent"></div>
         </div>
         <div class="card" style="margin-top:12px;">
+            <h2>Clear Team Roster</h2>
+            <p style="font-size:13px;color:#666;margin-bottom:10px;">Wipes a team's roster from the server. Useful for resetting after testing.</p>
+            <div style="display:flex;gap:8px;">
+                <select id="clearRosterTeam" style="flex:1;padding:8px;font-size:14px;">
+                    <option value="">-- Choose team --</option>
+                </select>
+                <button onclick="adminClearRoster()" class="danger" style="width:auto;padding:8px 14px;margin-top:0;">Clear</button>
+            </div>
+            <div id="clearRosterMsg" style="margin-top:6px;font-size:13px;"></div>
+        </div>
+        <div class="card" style="margin-top:12px;">
             <h2>Set Fixture Times</h2>
             <p style="font-size:13px;color:#666;margin-bottom:12px;">Set kick-off times for group stage fixtures. Teams will see these in their Fixtures tab.</p>
             <div id="fixtureTimesEditor"><div class="no-data">Loading…</div></div>
@@ -858,6 +869,19 @@ async function deleteNotice(id) {
         if (res.error) { alert(res.error); return; }
         await refreshData();
     } catch(e) { console.error('deleteNotice', e); }
+}
+
+async function adminClearRoster() {
+    const team = document.getElementById('clearRosterTeam').value;
+    if (!team) { showAlert('clearRosterMsg', 'Choose a team first.', 'error'); return; }
+    if (!confirm(`Clear the roster for ${team}? This cannot be undone.`)) return;
+    try {
+        const res = await apiPost({ action: 'saveRoster', team, players: [] });
+        if (res.error) { showAlert('clearRosterMsg', res.error, 'error'); return; }
+        localStorage.removeItem(`cc_roster_${team}`);
+        delete allRosters[team];
+        showAlert('clearRosterMsg', `✓ Roster cleared for ${team}.`, 'success');
+    } catch(e) { showAlert('clearRosterMsg', 'Network error — try again.', 'error'); }
 }
 
 // ── ROSTER ────────────────────────────────────────────────────────────────────
@@ -1491,6 +1515,13 @@ function renderTopScorers(elId, confirmed) {
 
 // ── ORGANIZER ─────────────────────────────────────────────────────────────────
 function renderOrganizerDashboard() {
+    // Populate clear-roster dropdown with all teams
+    const sel = document.getElementById('clearRosterTeam');
+    if (sel) {
+        const current = sel.value;
+        sel.innerHTML = '<option value="">-- Choose team --</option>' +
+            Object.values(groups).flat().sort().map(t => `<option value="${t}"${t===current?' selected':''}>${t}</option>`).join('');
+    }
     const el = document.getElementById('allResultsContent');
     if (!allScores.length) { el.innerHTML = '<div class="no-data">No scores submitted.</div>'; }
     else el.innerHTML = allScores.map(s => {
