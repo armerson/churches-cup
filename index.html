@@ -76,7 +76,7 @@
         .group-section { margin-bottom: 20px; }
         .group-header { font-size: 14px; font-weight: 700; margin-bottom: 8px; padding: 8px 12px; border-radius: 4px; display: flex; align-items: center; gap: 10px; }
         /* Pitch colour bands */
-        .pitch-white  { background: #f5f5f5; color: #222; border: 2px solid #ccc; }
+        .pitch-orange { background: #ff9800; color: #fff; border: 2px solid #e68a00; }
         .pitch-blue   { background: #274296; color: #fff; border: 2px solid #1d3278; }
         .pitch-yellow { background: #f5c800; color: #222; border: 2px solid #d4a900; }
         .pitch-red    { background: #c0392b; color: #fff; border: 2px solid #962d22; }
@@ -518,7 +518,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyubQx7dYI--e8UEyfz_rQ0
 // Key = sorted(team1, team2).join('||'), value = kick-off time
 // Group pairs cycle across all 4 pitches: A+B, then C+D, then E+F, then G+H,
 // repeating each round. Every team plays 3 games with a uniform 56-min rest.
-// A pair uses 2 colours (e.g. A=white games, B=yellow/red); see groupPitch.
+// A pair uses 2 colours (e.g. A=orange games, B=yellow/red); see groupPitch.
 const groupSchedule = {
     // 10:00 — Groups A & B
     "Covenant||Mourne": "10:00",
@@ -584,51 +584,51 @@ const groupSchedule = {
 
 // Per-game pitch colour (groups no longer own a single colour pitch).
 const groupPitch = {
-    "Covenant||Mourne": "white",
+    "Covenant||Mourne": "orange",
     "Spain Madrid||Waringstown Presbyterian Church": "blue",
     "Ballymagerney FPC||Bethany FC": "yellow",
     "Sloan Street Presbyterian||YAKAAR ACADEMY": "red",
-    "Grace Community Church Richhill||Portabello Baptist": "white",
+    "Grace Community Church Richhill||Portabello Baptist": "orange",
     "NTPC||Portadown Elim": "blue",
     "Acpc fc||Eagles": "yellow",
     "Lurgan Elim||Ulster wonders fc": "red",
-    "Craigavon PC||Newmills": "white",
+    "Craigavon PC||Newmills": "orange",
     "Benburb Ballers||Bleary FC": "blue",
     "CGR FC||Killicomaine Baptist church": "yellow",
     "CFPC Originals||Gortmerron Goats": "red",
-    "Ancora Church Football||Legacurry Presbyterian": "white",
+    "Ancora Church Football||Legacurry Presbyterian": "orange",
     "Downshire Church||Emmanuel Baptist": "blue",
     "Derry/Edenderry||The Blues": "yellow",
     "Ardtrea Aardvarks||Team Black": "red",
-    "Covenant||Spain Madrid": "white",
+    "Covenant||Spain Madrid": "orange",
     "Mourne||Waringstown Presbyterian Church": "blue",
     "Bethany FC||YAKAAR ACADEMY": "yellow",
     "Ballymagerney FPC||Sloan Street Presbyterian": "red",
-    "Grace Community Church Richhill||NTPC": "white",
+    "Grace Community Church Richhill||NTPC": "orange",
     "Portabello Baptist||Portadown Elim": "blue",
     "Eagles||Lurgan Elim": "yellow",
     "Acpc fc||Ulster wonders fc": "red",
-    "Bleary FC||Craigavon PC": "white",
+    "Bleary FC||Craigavon PC": "orange",
     "Benburb Ballers||Newmills": "blue",
     "CFPC Originals||Killicomaine Baptist church": "yellow",
     "CGR FC||Gortmerron Goats": "red",
-    "Ancora Church Football||Emmanuel Baptist": "white",
+    "Ancora Church Football||Emmanuel Baptist": "orange",
     "Downshire Church||Legacurry Presbyterian": "blue",
     "Ardtrea Aardvarks||Derry/Edenderry": "yellow",
     "Team Black||The Blues": "red",
-    "Covenant||Waringstown Presbyterian Church": "white",
+    "Covenant||Waringstown Presbyterian Church": "orange",
     "Mourne||Spain Madrid": "blue",
     "Bethany FC||Sloan Street Presbyterian": "yellow",
     "Ballymagerney FPC||YAKAAR ACADEMY": "red",
-    "Grace Community Church Richhill||Portadown Elim": "white",
+    "Grace Community Church Richhill||Portadown Elim": "orange",
     "NTPC||Portabello Baptist": "blue",
     "Eagles||Ulster wonders fc": "yellow",
     "Acpc fc||Lurgan Elim": "red",
-    "Benburb Ballers||Craigavon PC": "white",
+    "Benburb Ballers||Craigavon PC": "orange",
     "Bleary FC||Newmills": "blue",
     "Gortmerron Goats||Killicomaine Baptist church": "yellow",
     "CFPC Originals||CGR FC": "red",
-    "Ancora Church Football||Downshire Church": "white",
+    "Ancora Church Football||Downshire Church": "orange",
     "Emmanuel Baptist||Legacurry Presbyterian": "blue",
     "Derry/Edenderry||Team Black": "yellow",
     "Ardtrea Aardvarks||The Blues": "red",
@@ -636,7 +636,7 @@ const groupPitch = {
 function pitchColourLabel(colour) {
     return colour ? colour.charAt(0).toUpperCase() + colour.slice(1) + ' Pitch' : '';
 }
-// Normalise any pitch value ("White Pitch", "white", "White") to a colour key
+// Normalise any pitch value ("Orange Pitch", "orange", "Orange") to a colour key
 function pitchColourKey(raw) {
     return raw ? String(raw).trim().toLowerCase().split(/\s+/)[0] : '';
 }
@@ -1453,7 +1453,7 @@ function updateConfirmBadge() {
 // ── LEADERBOARD ───────────────────────────────────────────────────────────────
 // Pitch colour config: 2 groups per pitch
 const pitches = {
-    white:  ['A','B'],
+    orange: ['A','B'],
     blue:   ['C','D'],
     yellow: ['E','F'],
     red:    ['G','H']
@@ -1800,32 +1800,32 @@ function getGroupStandings() {
 // Which pitch each KO fixture is played on
 const koPitchAssignment = {
     // Championship (13:30: 4 games, 1 per pitch | 13:42: 4 games, 1 per pitch)
-    'c-r16-1':'white', 'c-r16-2':'blue',
+    'c-r16-1':'orange','c-r16-2':'blue',
     'c-r16-3':'yellow','c-r16-4':'red',
-    'c-r16-5':'white', 'c-r16-6':'blue',
+    'c-r16-5':'orange','c-r16-6':'blue',
     'c-r16-7':'yellow','c-r16-8':'red',
-    'c-qf-1':'white',  'c-qf-2':'blue',
+    'c-qf-1':'orange', 'c-qf-2':'blue',
     'c-qf-3':'yellow', 'c-qf-4':'red',
-    'c-sf-1':'white',  'c-sf-2':'blue',
-    'c-final':'white',                    // 15:18 Finals: c=white, s=yellow, p=blue
+    'c-sf-1':'orange', 'c-sf-2':'blue',
+    'c-final':'orange',                   // 15:18 Finals: c=orange, s=yellow, p=blue
     // Shield (13:54: 4 games, 1 per pitch | 14:06: 4 games, 1 per pitch)
-    's-r1-1':'white',  's-r1-2':'blue',
+    's-r1-1':'orange', 's-r1-2':'blue',
     's-r1-3':'yellow', 's-r1-4':'red',
-    's-r1-5':'white',  's-r1-6':'blue',
+    's-r1-5':'orange', 's-r1-6':'blue',
     's-r1-7':'yellow', 's-r1-8':'red',
-    's-qf-1':'white',  's-qf-2':'blue',
+    's-qf-1':'orange', 's-qf-2':'blue',
     's-qf-3':'yellow', 's-qf-4':'red',
-    's-sf-1':'white',  's-sf-2':'blue',  // 15:06: white + blue (2 games only)
-    's-final':'yellow',                   // 15:18 Finals: c=white, s=yellow, p=blue
+    's-sf-1':'orange', 's-sf-2':'blue',  // 15:06: orange + blue (2 games only)
+    's-final':'yellow',                   // 15:18 Finals: c=orange, s=yellow, p=blue
     // Plate (8 teams — starts at QF, no R1)
-    'p-r1-1':'white',  'p-r1-2':'blue',
+    'p-r1-1':'orange', 'p-r1-2':'blue',
     'p-r1-3':'yellow', 'p-r1-4':'red',
-    'p-sf-1':'yellow', 'p-sf-2':'red',   // 14:54: yellow + red (alongside c-sf white+blue)
-    'p-final':'blue',                     // 15:18 Finals: c=white, s=yellow, p=blue
+    'p-sf-1':'yellow', 'p-sf-2':'red',   // 14:54: yellow + red (alongside c-sf orange+blue)
+    'p-final':'blue',                     // 15:18 Finals: c=orange, s=yellow, p=blue
 };
 
 const pitchStyles = {
-    white:  { bg: '#f0f0f0', text: '#222', border: '#bbb' },
+    orange: { bg: '#ff9800', text: '#fff', border: '#e68a00' },
     blue:   { bg: '#274296', text: '#fff', border: '#1d3278' },
     yellow: { bg: '#f5c800', text: '#222', border: '#d4a900' },
     red:    { bg: '#c0392b', text: '#fff', border: '#962d22' },
@@ -1908,7 +1908,7 @@ function groupProgressBanner() {
 
 function pitchLegend() {
     const items = [
-        { colour:'white',  label:'White Pitch', bg:'#f0f0f0', text:'#222', border:'#bbb' },
+        { colour:'orange', label:'Orange Pitch',bg:'#ff9800', text:'#fff', border:'#e68a00' },
         { colour:'blue',   label:'Blue Pitch',  bg:'#274296', text:'#fff', border:'#1d3278' },
         { colour:'yellow', label:'Yellow Pitch',bg:'#f5c800', text:'#222', border:'#d4a900' },
         { colour:'red',    label:'Red Pitch',   bg:'#c0392b', text:'#fff', border:'#962d22' },
