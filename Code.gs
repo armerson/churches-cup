@@ -14,7 +14,6 @@ function doGet(e) {
 
 function doPost(e) {
   var data = JSON.parse(e.postData.contents);
-  // Serialise writes so simultaneous submissions can't race past duplicate checks
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
@@ -36,6 +35,7 @@ function routePost(data) {
   else if (data.action === 'updateStatus')  result = authorizeStatusUpdate(data) || updateStatus(data);
   else if (data.action === 'saveRoster')    result = saveRoster(data);
   else if (data.action === 'saveKO')        result = authorizeKO(data) || saveKOMatch(data);
+  else if (data.action === 'confirmKO')     result = authorizeKOConfirm(data) || confirmKOMatch(data);
   else if (data.action === 'editScore')     result = requireAdminAuth(data) || editScore(data);
   else if (data.action === 'deleteScore')   result = requireAdminAuth(data) || deleteScore(data);
   else if (data.action === 'updatePin')     result = requireTeamAuth(data, data.team, data.currentPin) || updatePin(data);
@@ -93,6 +93,26 @@ function authorizeKO(data) {
   return adminError;
 }
 
+// Authorise a team to confirm/dispute a KO match submitted by the other team.
+// The confirming team must be involved in the match but must NOT be the submitter.
+function authorizeKOConfirm(data) {
+  var match = findKOById(data.matchId);
+  if (!match) return { error: 'KO match not found' };
+  var team = String(data.authTeam || '');
+  // Admins can always confirm
+  var adminError = requireAdminAuth(data);
+  if (!adminError) return null;
+  // Team must be involved
+  if (team !== String(match.team1) && team !== String(match.team2)) {
+    return { error: 'Not authorised for this match.' };
+  }
+  // Submitting team cannot confirm its own submission
+  if (team === String(match.submittedBy)) {
+    return { error: 'Submitting team cannot confirm its own result.' };
+  }
+  return requireTeamAuth(data, team);
+}
+
 function validTeamPin(team, pin) {
   return !!team && String(pin || '') === getPinForTeam(team);
 }
@@ -112,6 +132,14 @@ function findScoreById(id) {
   var scores = getScores();
   for (var i = 0; i < scores.length; i++) {
     if (String(scores[i].id) === String(id)) return scores[i];
+  }
+  return null;
+}
+
+function findKOById(matchId) {
+  var matches = getKOMatches();
+  for (var i = 0; i < matches.length; i++) {
+    if (String(matches[i].matchId) === String(matchId)) return matches[i];
   }
   return null;
 }
@@ -155,7 +183,6 @@ function submitScore(data) {
     JSON.stringify(data.scorers || []),
     data.submittedBy, 'pending', new Date().toISOString()
   ]);
-  // Save opposition scorers if provided, using dynamic column (safe for existing sheets)
   if (data.scorers2 && data.scorers2.length > 0) {
     var rows = sheet.getDataRange().getValues();
     var headers = rows[0];
@@ -245,6 +272,7 @@ function deleteScore(data) {
 // ---------- KO Matches ----------
 // Columns: matchId, competition, round, matchNum, team1, team2,
 //          score1, score2, penScore1, penScore2, winner, timestamp
+// Extra columns (added via ensureCol): status, submittedBy, scorers1, scorers2
 
 function getKOMatches() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('KOMatches');
@@ -267,6 +295,9 @@ function getKOMatches() {
 
 function saveKOMatch(data) {
   if (data.winner && data.winner !== data.team1 && data.winner !== data.team2) return { error: 'Winner must be one of the match teams.' };
+
+  var isAdmin = String(data.adminPin || '') === ADMIN_PIN;
+
   var sheet = getOrCreateSheet('KOMatches', [
     'matchId','competition','round','matchNum',
     'team1','team2','score1','score2','penScore1','penScore2','winner','timestamp'
@@ -281,9 +312,12 @@ function saveKOMatch(data) {
     return idx;
   }
 
-  // A team submission carries only its own side's scorers; the organiser
-  // modal carries both. Only the provided sides are written, so one team's
-  // entry never wipes the other's.
+  // When a team (non-admin) submits, status = 'pending' and no winner yet.
+  // When admin submits, go straight to confirmed with winner.
+  var submitStatus = isAdmin ? 'confirmed' : 'pending';
+  var submitWinner = isAdmin ? (data.winner || '') : '';
+  var submittedBy  = isAdmin ? '' : (data.authTeam || '');
+
   function writeScorers(rowNum) {
     var s1, s2;
     if (data.scorersTeam) {
@@ -300,30 +334,105 @@ function saveKOMatch(data) {
   // Update if exists
   for (var i = 1; i < rows.length; i++) {
     if (String(rows[i][midCol]) === String(data.matchId)) {
+      var existingStatus = String(rows[i][headers.indexOf('status')] || '');
+      // Block duplicate pending submissions from teams (not admins)
+      if (!isAdmin && existingStatus === 'pending') {
+        return { error: 'A result for this match is already pending confirmation.' };
+      }
       sheet.getRange(i+1, 1, 1, 12).setValues([[
         data.matchId, data.competition, data.round, data.matchNum,
         data.team1, data.team2,
         Number(data.score1), Number(data.score2),
         data.penScore1 !== undefined ? data.penScore1 : '',
         data.penScore2 !== undefined ? data.penScore2 : '',
-        data.winner, new Date().toISOString()
+        submitWinner, new Date().toISOString()
       ]]);
+      // Write status and submittedBy in extra columns
+      sheet.getRange(i+1, ensureCol('status')+1).setValue(submitStatus);
+      sheet.getRange(i+1, ensureCol('submittedBy')+1).setValue(submittedBy);
       writeScorers(i+1);
       return { success: true };
     }
   }
 
-  // Insert new
+  // Insert new row
   sheet.appendRow([
     data.matchId, data.competition, data.round, data.matchNum,
     data.team1, data.team2,
     Number(data.score1), Number(data.score2),
     data.penScore1 !== undefined ? data.penScore1 : '',
     data.penScore2 !== undefined ? data.penScore2 : '',
-    data.winner, new Date().toISOString()
+    submitWinner, new Date().toISOString()
   ]);
-  writeScorers(sheet.getLastRow());
+  var newRow = sheet.getLastRow();
+  sheet.getRange(newRow, ensureCol('status')+1).setValue(submitStatus);
+  sheet.getRange(newRow, ensureCol('submittedBy')+1).setValue(submittedBy);
+  writeScorers(newRow);
   return { success: true };
+}
+
+// Confirm (or dispute) a KO match that was submitted as pending by a team.
+// Determines winner from stored scores and updates status + winner columns.
+function confirmKOMatch(data) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('KOMatches');
+  if (!sheet) return { error: 'No KOMatches sheet' };
+  var rows = sheet.getDataRange().getValues();
+  var headers = rows[0];
+  var midCol = headers.indexOf('matchId');
+
+  function ensureCol(name) {
+    var idx = headers.indexOf(name);
+    if (idx === -1) { idx = headers.length; headers.push(name); sheet.getRange(1, idx+1).setValue(name); }
+    return idx;
+  }
+
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][midCol]) === String(data.matchId)) {
+      var newStatus = String(data.status || 'confirmed');
+      sheet.getRange(i+1, ensureCol('status')+1).setValue(newStatus);
+
+      if (newStatus === 'confirmed') {
+        // Derive winner from scores already stored in the row
+        var s1Col = headers.indexOf('score1');
+        var s2Col = headers.indexOf('score2');
+        var p1Col = headers.indexOf('penScore1');
+        var p2Col = headers.indexOf('penScore2');
+        var t1Col = headers.indexOf('team1');
+        var t2Col = headers.indexOf('team2');
+        var winnerCol = headers.indexOf('winner');
+
+        var s1 = Number(rows[i][s1Col]);
+        var s2 = Number(rows[i][s2Col]);
+        var p1 = Number(rows[i][p1Col]) || 0;
+        var p2 = Number(rows[i][p2Col]) || 0;
+        var t1 = String(rows[i][t1Col]);
+        var t2 = String(rows[i][t2Col]);
+
+        var winner = '';
+        if (s1 > s2) winner = t1;
+        else if (s2 > s1) winner = t2;
+        else if (p1 > p2) winner = t1;
+        else if (p2 > p1) winner = t2;
+        // If still tied (e.g. no penalties entered), leave winner blank
+
+        // Use data.winner override if explicitly passed and valid
+        if (data.winner && (data.winner === t1 || data.winner === t2)) {
+          winner = data.winner;
+        }
+
+        if (winnerCol >= 0) {
+          sheet.getRange(i+1, winnerCol+1).setValue(winner);
+        }
+      } else if (newStatus === 'disputed') {
+        // Clear winner on dispute
+        var winnerColD = headers.indexOf('winner');
+        if (winnerColD >= 0) sheet.getRange(i+1, winnerColD+1).setValue('');
+      }
+
+      return { success: true };
+    }
+  }
+  return { error: 'KO match not found' };
 }
 
 // ---------- Rosters ----------
@@ -359,7 +468,6 @@ function saveRoster(data) {
 }
 
 // ---------- Schedule / Fixture Times ----------
-// Sheet columns: matchKey (sorted team1||team2), time, pitch, notes
 
 function getSchedule() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Schedule');
@@ -416,7 +524,7 @@ function getNotices() {
     var obj = {};
     headers.forEach(function(h, i) { obj[h] = row[i]; });
     return obj;
-  }).reverse(); // newest first
+  }).reverse();
 }
 
 function postNotice(data) {

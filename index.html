@@ -1064,13 +1064,15 @@ function loadMyMatches() {
         });
     }
 
-    // Knockout fixtures where this team is involved and no result yet
+    // Knockout fixtures where this team is involved and result not confirmed yet
     if (Array.isArray(allKO)) {
         allKO.forEach(m => {
             const involved = m.team1 === currentTeam || m.team2 === currentTeam;
-            const hasResult = m.winner && m.winner !== '';
+            const isConfirmed = m.status === 'confirmed';
             const bothKnown = m.team1 && m.team2 && m.team1 !== 'TBD' && m.team2 !== 'TBD';
-            if (involved && bothKnown && !hasResult) {
+            // Only show in Report dropdown if not confirmed AND this team hasn't already submitted
+            const alreadySubmitted = m.submittedBy === currentTeam && m.status === 'pending';
+            if (involved && bothKnown && !isConfirmed && !alreadySubmitted) {
                 const opp = m.team1 === currentTeam ? m.team2 : m.team1;
                 const label = m.round ? `[KO ${m.round.toUpperCase()}] vs ${opp}` : `[KO] vs ${opp}`;
                 const opt = new Option(label, 'KO:' + m.matchId);
@@ -1131,6 +1133,44 @@ function goReportKO(matchId) {
         sel.value = 'KO:' + matchId;
         loadMatch();
     }, 100);
+}
+
+function goConfirmKO(matchId) {
+    showTab('confirm', document.getElementById('btnConfirm'));
+    setTimeout(function() {
+        const el = document.getElementById('confirm-ko-card-' + matchId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+}
+
+async function confirmKO(matchId) {
+    const r = allKO.find(m => String(m.matchId) === String(matchId));
+    if (!r) return;
+    // Determine winner from stored scores
+    const s1 = Number(r.score1), s2 = Number(r.score2);
+    const p1 = Number(r.penScore1) || 0, p2 = Number(r.penScore2) || 0;
+    let winner;
+    if (s1 > s2) winner = r.team1;
+    else if (s2 > s1) winner = r.team2;
+    else if (p1 > p2) winner = r.team1;
+    else if (p2 > p1) winner = r.team2;
+    else { alert('Cannot determine winner — please ask an organiser to resolve.'); return; }
+    const res = await apiPost({ action: 'confirmKO', matchId, status: 'confirmed', winner });
+    if (res && res.error) { alert('Error: ' + res.error); return; }
+    await refreshData();
+    renderAll();
+    updateConfirmBadge();
+}
+
+async function disputeKO(matchId) {
+    const r = allKO.find(m => String(m.matchId) === String(matchId));
+    if (!r) return;
+    const res = await apiPost({ action: 'confirmKO', matchId, status: 'disputed', winner: '' });
+    if (res && res.error) { alert('Error: ' + res.error); return; }
+    await refreshData();
+    renderAll();
+    updateConfirmBadge();
+    alert('Score disputed — please contact an organiser to resolve.');
 }
 
 function checkPenRow() {
@@ -1227,12 +1267,8 @@ async function submitScore() {
             const s2 = myIsT1 ? score2 : score1;
             const p1 = myIsT1 ? pen1 : pen2;
             const p2 = myIsT1 ? pen2 : pen1;
-            let winner;
-            if (s1 > s2) winner = t1;
-            else if (s2 > s1) winner = t2;
-            else if (p1 > p2) winner = t1;
-            else if (p2 > p1) winner = t2;
-            else {
+            // Validate that if scores are level there's a penalty result
+            if (s1 === s2 && p1 === p2) {
                 showAlert('scoreMsg', 'Scores are level — please enter the penalty shootout result to decide a winner.', 'error');
                 btn.disabled = false; btn.innerHTML = '✓ Submit Score'; return;
             }
@@ -1240,13 +1276,13 @@ async function submitScore() {
                 action: 'saveKO', matchId, competition, round, matchNum,
                 team1: t1, team2: t2, score1: s1, score2: s2,
                 penScore1: s1 === s2 ? p1 : '', penScore2: s1 === s2 ? p2 : '',
-                winner,
+                status: 'pending', submittedBy: currentTeam,
                 scorersTeam: currentTeam, scorers: koScorers
             });
             if (res.error) {
                 showAlert('scoreMsg', res.error, 'error');
             } else {
-                showAlert('scoreMsg', '✓ Knockout result submitted! The organiser can edit if needed.', 'success');
+                showAlert('scoreMsg', '✓ Knockout result submitted! Your opponent will be asked to confirm.', 'success');
                 document.getElementById('matchSelect').value = '';
                 document.getElementById('scoreForm').style.display = 'none';
                 currentKOMatch = null;
@@ -1326,11 +1362,38 @@ function renderConfirmList() {
         s.submittedBy !== currentTeam &&
         s.status === 'pending'
     );
-    if (!pending.length) { el.innerHTML = '<div class="no-data">Nothing to confirm right now — check back after your opponents submit.</div>'; return; }
+
+    // KO pending items — opponent submitted, waiting for current team to confirm
+    const pendingKO = Array.isArray(allKO) ? allKO.filter(r =>
+        (r.team1 === currentTeam || r.team2 === currentTeam) &&
+        r.submittedBy && r.submittedBy !== currentTeam &&
+        r.status === 'pending'
+    ) : [];
+
+    if (!pending.length && !pendingKO.length) { el.innerHTML = '<div class="no-data">Nothing to confirm right now — check back after your opponents submit.</div>'; return; }
     const myRoster = (allRosters[currentTeam] || JSON.parse(localStorage.getItem(`cc_roster_${currentTeam}`) || '[]')).filter(p => p);
     const rosterOpts = myRoster.map(p => `<option value="${p}">${p}</option>`).join('');
 
-    el.innerHTML = pending.map(s => {
+    const koItems = pendingKO.map(r => {
+        const myIsT1 = r.team1 === currentTeam;
+        const myScore = myIsT1 ? r.score1 : r.score2;
+        const oppScore = myIsT1 ? r.score2 : r.score1;
+        const oppName = myIsT1 ? r.team2 : r.team1;
+        const roundLabel = r.round ? r.round.toUpperCase() : 'KO';
+        const penStr = (r.penScore1 !== '' && r.penScore1 !== undefined)
+            ? ` (pens ${r.penScore1}–${r.penScore2})` : '';
+        return `<div class="score-item pending" id="confirm-ko-card-${r.matchId}" style="border-left:4px solid var(--royal);">
+            <span style="font-size:10px;background:var(--royal);color:white;padding:1px 5px;border-radius:3px;margin-bottom:6px;display:inline-block;">${roundLabel}</span>
+            <strong>${r.team1} ${r.score1}–${r.score2} ${r.team2}${penStr}</strong>
+            <small style="display:block;color:#888;margin-top:2px;">Submitted by ${r.submittedBy}</small>
+            <div class="button-group">
+                <button class="success" onclick="confirmKO('${r.matchId}')">✓ Confirm</button>
+                <button class="danger"  onclick="disputeKO('${r.matchId}')">✗ Dispute</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = koItems + pending.map(s => {
         const scorers = Array.isArray(s.scorers) ? s.scorers : [];
         const myScore = s.team1 === currentTeam ? s.score1 : s.score2;
         return `<div class="score-item pending" id="confirm-card-${s.id}">
@@ -1440,11 +1503,17 @@ async function confirmScore(id, status, myScore) {
 }
 
 function updateConfirmBadge() {
-    const count = allScores.filter(s =>
+    const groupCount = allScores.filter(s =>
         (s.team1 === currentTeam || s.team2 === currentTeam) &&
         s.submittedBy !== currentTeam &&
         s.status === 'pending'
     ).length;
+    const koCount = Array.isArray(allKO) ? allKO.filter(r =>
+        (r.team1 === currentTeam || r.team2 === currentTeam) &&
+        r.submittedBy && r.submittedBy !== currentTeam &&
+        r.status === 'pending'
+    ).length : 0;
+    const count = groupCount + koCount;
     const btn = document.getElementById('btnConfirm');
     if (count > 0) {
         btn.classList.add('tab-badge');
@@ -1857,7 +1926,7 @@ function koWinner(matchId, t1, t2) {
 function matchCard(matchId, t1, t2, label) {
     const r = koResult(matchId);
     const winner = r ? r.winner : null;
-    const played = r && r.winner;
+    const played = r && r.winner && (!r.status || r.status === 'confirmed');
     const canEdit = isOrganizer && t1 && t2 && t1 !== 'TBD' && t2 !== 'TBD';
     const isMyMatch = !isOrganizer && currentTeam && (t1 === currentTeam || t2 === currentTeam) && t1 && t2 && t1 !== 'TBD' && t2 !== 'TBD';
 
@@ -1886,7 +1955,9 @@ function matchCard(matchId, t1, t2, label) {
             <div style="text-align:right;min-width:70px;">
                 ${scoreStr ? `<div style="font-weight:700;font-size:14px;">${scoreStr}</div>` : ''}
                 ${canEdit ? `<button onclick="openKOModal('${matchId}','${(t1||'').replace(/'/g,"\\'")}','${(t2||'').replace(/'/g,"\\'")}','${label.replace(/'/g,"\\'")}')" style="width:auto;padding:4px 8px;font-size:11px;margin-top:4px;">${played ? 'Edit' : 'Enter'}</button>` : ''}
-                ${isMyMatch && !played ? `<button onclick="goReportKO('${matchId}')" style="width:auto;padding:4px 8px;font-size:11px;margin-top:4px;background:var(--royal);color:white;">Report Score</button>` : ''}
+                ${isMyMatch && !played && (!r || !r.status || r.status === 'disputed') ? `<button onclick="goReportKO('${matchId}')" style="width:auto;padding:4px 8px;font-size:11px;margin-top:4px;background:var(--royal);color:white;">Report Score</button>` : ''}
+                ${isMyMatch && !played && r && r.status === 'pending' && r.submittedBy && r.submittedBy !== currentTeam ? `<button onclick="goConfirmKO('${matchId}')" style="width:auto;padding:4px 8px;font-size:11px;margin-top:4px;background:#28a745;color:white;">Confirm Score</button>` : ''}
+                ${isMyMatch && !played && r && r.status === 'pending' && r.submittedBy === currentTeam ? `<span style="font-size:11px;color:#888;display:block;margin-top:4px;">Awaiting opponent confirmation…</span>` : ''}
             </div>
         </div>
     </div>`;
