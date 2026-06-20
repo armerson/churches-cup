@@ -819,9 +819,9 @@ function groupsComplete() {
     return true;
 }
 
-function enterPlayerView() {
+async function enterPlayerView() {
     isPlayerView = true;
-    refreshData();
+    await refreshData();
     updateUI();
     showTab('leaderboard', null);
 }
