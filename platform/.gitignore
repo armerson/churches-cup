@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Scratch output from the one-time migration script — never committed
+scripts/migration-plan.dry-run.json
