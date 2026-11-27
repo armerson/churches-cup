@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import {
@@ -38,6 +39,9 @@ async function TournamentContent({ params }: Props) {
         Status: {tournament.status.replace("_", " ")}
         {tournament.maxTeams ? ` · ${tournament.maxTeams} team cap` : ""}
       </p>
+      <Link href={`/tournaments/${orgSlug}/${tournamentSlug}/fixtures`} className="text-sm underline">
+        Fixtures &amp; standings
+      </Link>
 
       {/* Nested boundary: the session-dependent registration state can
           resolve independently of (and later than) the tournament info

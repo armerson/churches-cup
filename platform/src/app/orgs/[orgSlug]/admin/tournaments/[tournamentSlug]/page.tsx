@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { isOrgAdmin } from "@/lib/orgs";
@@ -5,6 +6,7 @@ import { getTournamentAdminView } from "@/lib/tournaments";
 import { AddCompetitionForm } from "./add-competition-form";
 import { AddPitchForm } from "./add-pitch-form";
 import { PublishButton } from "./publish-button";
+import { GenerateFixturesForm } from "./generate-fixtures-form";
 
 type Props = { params: Promise<{ orgSlug: string; tournamentSlug: string }> };
 
@@ -79,6 +81,22 @@ async function AdminContent({ params }: Props) {
           orgSlug={orgSlug}
           tournamentSlug={tournamentSlug}
         />
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="font-medium">Fixtures</h2>
+        <GenerateFixturesForm
+          tournamentId={tournament.id}
+          orgSlug={orgSlug}
+          tournamentSlug={tournamentSlug}
+          competitions={tournament.competitions}
+        />
+        <Link
+          href={`/tournaments/${orgSlug}/${tournamentSlug}/fixtures`}
+          className="text-sm underline"
+        >
+          View fixtures &amp; standings
+        </Link>
       </section>
     </>
   );

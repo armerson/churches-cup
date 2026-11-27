@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOrgIdBySlug } from "@/lib/tournaments";
+import { splitIntoGroups, generateRoundRobinFixtures } from "@/lib/scheduling";
 
 export type FormState = { error: string | null };
 
@@ -86,6 +87,75 @@ export async function addCompetition(
 
   if (error) {
     return { error: error.message };
+  }
+
+  redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);
+}
+
+const GROUP_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+export async function generateGroupFixtures(
+  tournamentId: string,
+  orgSlug: string,
+  tournamentSlug: string,
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const competitionId = String(formData.get("competitionId") ?? "");
+  const groupCountRaw = String(formData.get("groupCount") ?? "1");
+  const groupCount = Math.max(1, Number.parseInt(groupCountRaw, 10) || 1);
+
+  if (!competitionId) {
+    return { error: "Choose a competition first." };
+  }
+
+  const supabase = await createClient();
+
+  // No permission check here either — fixtures INSERT is gated by the
+  // same administers_tournament() RLS policy as competitions/pitches.
+  const { data: registrations, error: regError } = await supabase
+    .from("registrations")
+    .select("id")
+    .eq("tournament_id", tournamentId)
+    .eq("status", "confirmed");
+
+  if (regError) {
+    return { error: regError.message };
+  }
+  if (!registrations || registrations.length < 2) {
+    return { error: "Need at least 2 confirmed registrations to generate fixtures." };
+  }
+
+  const groups = splitIntoGroups(
+    registrations.map((r) => r.id as string),
+    groupCount,
+  );
+
+  const allFixtures = (
+    await Promise.all(
+      groups.map((group, i) =>
+        generateRoundRobinFixtures(GROUP_LETTERS[i] ?? String(i + 1), group),
+      ),
+    )
+  ).flat();
+
+  if (allFixtures.length === 0) {
+    return { error: "No fixtures were generated (not enough teams per group)." };
+  }
+
+  const { error: insertError } = await supabase.from("fixtures").insert(
+    allFixtures.map((f) => ({
+      tournament_id: tournamentId,
+      competition_id: competitionId,
+      round: f.round,
+      group_label: f.groupLabel,
+      team1_registration_id: f.team1RegistrationId,
+      team2_registration_id: f.team2RegistrationId,
+    })),
+  );
+
+  if (insertError) {
+    return { error: insertError.message };
   }
 
   redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);

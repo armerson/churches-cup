@@ -12,6 +12,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.2",
     "brackets-manager": "^1.11.1",
+    "brackets-memory-db": "^1.0.6",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0"
