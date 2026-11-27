@@ -63,3 +63,77 @@ export async function getMyRegisteredTeamIds(tournamentId: string): Promise<Set<
     .eq("tournament_id", tournamentId);
   return new Set((data ?? []).map((r) => r.team_id));
 }
+
+export async function getOrgIdBySlug(orgSlug: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("organisations")
+    .select("id")
+    .eq("slug", orgSlug)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export type Competition = { id: string; name: string; format: string };
+export type Pitch = { id: string; name: string; colour: string | null };
+
+export type TournamentAdminView = TournamentDetail & {
+  competitions: Competition[];
+  pitches: Pitch[];
+};
+
+export async function getTournamentAdminView(
+  orgSlug: string,
+  tournamentSlug: string,
+): Promise<TournamentAdminView | null> {
+  const tournament = await getTournamentBySlug(orgSlug, tournamentSlug);
+  if (!tournament) return null;
+
+  const supabase = await createClient();
+  const [competitions, pitches] = await Promise.all([
+    supabase.from("competitions").select("id, name, format").eq("tournament_id", tournament.id),
+    supabase.from("pitches").select("id, name, colour").eq("tournament_id", tournament.id),
+  ]);
+
+  return {
+    ...tournament,
+    competitions: competitions.data ?? [],
+    pitches: pitches.data ?? [],
+  };
+}
+
+// Public tournament discovery (brief §12) — every org's public tournaments,
+// most recently created first.
+export type DiscoverableTournament = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  startsAt: string | null;
+  orgName: string;
+  orgSlug: string;
+};
+
+export async function listPublicTournaments(): Promise<DiscoverableTournament[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tournaments")
+    .select("id, name, slug, status, starts_at, organisations!inner(slug, name)")
+    .eq("is_public", true)
+    .order("starts_at", { ascending: true, nullsFirst: false });
+
+  if (error || !data) return [];
+
+  return data.map((row) => {
+    const org = Array.isArray(row.organisations) ? row.organisations[0] : row.organisations;
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      status: row.status,
+      startsAt: row.starts_at,
+      orgName: org?.name ?? "",
+      orgSlug: org?.slug ?? "",
+    };
+  });
+}
