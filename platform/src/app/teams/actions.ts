@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createCheckoutForRegistration } from "@/lib/payments";
 
 export type TeamActionState = { error: string | null };
 
@@ -48,7 +49,11 @@ export async function createTeam(
   redirect("/teams");
 }
 
-export type RegisterActionState = { error: string | null; status: string | null };
+export type RegisterActionState = {
+  error: string | null;
+  status: string | null;
+  checkoutUrl: string | null;
+};
 
 export async function registerTeamForTournament(
   _prevState: RegisterActionState,
@@ -58,7 +63,7 @@ export async function registerTeamForTournament(
   const teamId = String(formData.get("teamId") ?? "");
 
   if (!tournamentId || !teamId) {
-    return { error: "Choose a team to register.", status: null };
+    return { error: "Choose a team to register.", status: null, checkoutUrl: null };
   }
 
   const supabase = await createClient();
@@ -72,8 +77,45 @@ export async function registerTeamForTournament(
   });
 
   if (error) {
-    return { error: error.message, status: null };
+    return { error: error.message, status: null, checkoutUrl: null };
   }
 
-  return { error: null, status: (data as { status?: string } | null)?.status ?? null };
+  const registration = data as { id: string; status: string } | null;
+  if (!registration) {
+    return { error: "Registration failed.", status: null, checkoutUrl: null };
+  }
+
+  if (registration.status !== "pending") {
+    // Waitlisted — nothing to pay yet, no further action needed.
+    return { error: null, status: registration.status, checkoutUrl: null };
+  }
+
+  const { data: tournament } = await supabase
+    .from("tournaments")
+    .select("entry_fee_cents")
+    .eq("id", tournamentId)
+    .maybeSingle();
+
+  if (!tournament || tournament.entry_fee_cents <= 0) {
+    // Free tournament — nothing to pay, so 'pending' is already the
+    // successful terminal state; confirm immediately rather than leaving
+    // it stuck behind a payment step that doesn't apply. Goes through a
+    // function, not a direct update — see
+    // 20261127250000_tighten_registration_updates.sql for why a plain
+    // client-side update can't be trusted to self-confirm.
+    const { error: confirmError } = await supabase.rpc("confirm_free_registration", {
+      p_registration_id: registration.id,
+    });
+    if (confirmError) {
+      return { error: confirmError.message, status: registration.status, checkoutUrl: null };
+    }
+    return { error: null, status: "confirmed", checkoutUrl: null };
+  }
+
+  const checkout = await createCheckoutForRegistration(registration.id, tournamentId);
+  if (checkout.error) {
+    return { error: checkout.error, status: registration.status, checkoutUrl: null };
+  }
+
+  return { error: null, status: "reserved", checkoutUrl: checkout.checkoutUrl };
 }

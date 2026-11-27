@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { registerTeamForTournament, type RegisterActionState } from "@/app/teams/actions";
 import type { Team } from "@/lib/teams";
 
-const initialState: RegisterActionState = { error: null, status: null };
+const initialState: RegisterActionState = { error: null, status: null, checkoutUrl: null };
 
 export function RegisterForm({
   tournamentId,
@@ -17,6 +17,19 @@ export function RegisterForm({
     registerTeamForTournament,
     initialState,
   );
+
+  // Paid tournament: send the browser on to Stripe Checkout once a
+  // session exists — a plain navigation, not a server-side redirect,
+  // since the URL only exists after this client-side state update.
+  useEffect(() => {
+    if (state.checkoutUrl) {
+      window.location.href = state.checkoutUrl;
+    }
+  }, [state.checkoutUrl]);
+
+  if (state.checkoutUrl) {
+    return <p className="text-sm text-zinc-500">Redirecting you to payment…</p>;
+  }
 
   if (state.status) {
     return (
