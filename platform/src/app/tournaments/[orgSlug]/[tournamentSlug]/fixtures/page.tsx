@@ -77,7 +77,9 @@ async function FixturesContent({ params }: Props) {
 
             <ul className="flex flex-col gap-2">
               {groupFixtures.map((f) => {
-                const canAct = myTeamIds.has(f.team1TeamId) || myTeamIds.has(f.team2TeamId);
+                const canAct =
+                  (f.team1TeamId != null && myTeamIds.has(f.team1TeamId)) ||
+                  (f.team2TeamId != null && myTeamIds.has(f.team2TeamId));
                 return (
                   <li
                     key={f.id}

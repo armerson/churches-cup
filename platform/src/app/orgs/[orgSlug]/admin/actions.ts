@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOrgIdBySlug } from "@/lib/tournaments";
 import { splitIntoGroups, generateRoundRobinFixtures } from "@/lib/scheduling";
+import { generateKnockoutBracket } from "@/lib/bracket";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isOrgAdmin } from "@/lib/orgs";
 
 export type FormState = { error: string | null };
 
@@ -154,6 +157,84 @@ export async function generateGroupFixtures(
     })),
   );
 
+  if (insertError) {
+    return { error: insertError.message };
+  }
+
+  redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);
+}
+
+export async function generateKnockoutFixtures(
+  tournamentId: string,
+  orgSlug: string,
+  tournamentSlug: string,
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const competitionId = String(formData.get("competitionId") ?? "");
+  if (!competitionId) {
+    return { error: "Choose a competition first." };
+  }
+
+  // Explicit re-check here, not just a UI gate: this action writes to
+  // bracket_stages via the service-role client below, which bypasses RLS
+  // entirely, so it must verify authorisation itself rather than relying
+  // on a policy to reject an unauthorised caller.
+  if (!(await isOrgAdmin(orgSlug))) {
+    return { error: "Not authorised." };
+  }
+
+  const supabase = await createClient();
+  const { data: registrations, error: regError } = await supabase
+    .from("registrations")
+    .select("id")
+    .eq("tournament_id", tournamentId)
+    .eq("status", "confirmed");
+
+  if (regError) {
+    return { error: regError.message };
+  }
+  if (!registrations || registrations.length < 2) {
+    return { error: "Need at least 2 confirmed registrations to generate a bracket." };
+  }
+
+  const { data: competition, error: compError } = await supabase
+    .from("competitions")
+    .select("name")
+    .eq("id", competitionId)
+    .maybeSingle();
+  if (compError || !competition) {
+    return { error: "Competition not found." };
+  }
+
+  const { data: bracketData, participantMap, fixtures } = await generateKnockoutBracket(
+    competition.name,
+    registrations.map((r) => r.id as string),
+  );
+
+  // bracket_stages has no client-facing write policy (see its migration) —
+  // only this service-role write path creates/updates it, immediately
+  // after the isOrgAdmin re-check above.
+  const admin = createAdminClient();
+  const { error: stageError } = await admin.from("bracket_stages").upsert({
+    competition_id: competitionId,
+    participant_map: participantMap,
+    data: bracketData,
+  });
+  if (stageError) {
+    return { error: stageError.message };
+  }
+
+  const { error: insertError } = await supabase.from("fixtures").insert(
+    fixtures.map((f) => ({
+      tournament_id: tournamentId,
+      competition_id: competitionId,
+      round: f.round,
+      bracket_match_id: f.bracketMatchId,
+      team1_registration_id: f.team1RegistrationId,
+      team2_registration_id: f.team2RegistrationId,
+    })),
+  );
   if (insertError) {
     return { error: insertError.message };
   }

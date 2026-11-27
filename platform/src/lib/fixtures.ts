@@ -14,10 +14,12 @@ export type FixtureWithTeams = {
   groupLabel: string | null;
   team1Name: string;
   team2Name: string;
-  team1RegistrationId: string;
-  team2RegistrationId: string;
-  team1TeamId: string;
-  team2TeamId: string;
+  // Null for a knockout fixture whose opponent isn't decided yet — the
+  // feeder match(es) haven't been played/confirmed. Shown as "TBD".
+  team1RegistrationId: string | null;
+  team2RegistrationId: string | null;
+  team1TeamId: string | null;
+  team2TeamId: string | null;
   score: FixtureScore | null;
 };
 
@@ -46,18 +48,16 @@ export async function getFixtures(tournamentId: string): Promise<FixtureWithTeam
       const team2Info = Array.isArray(team2?.team) ? team2.team[0] : team2?.team;
       const scoreRow = Array.isArray(row.scores) ? row.scores[0] : row.scores;
 
-      if (!team1 || !team2) return null;
-
       return {
         id: row.id,
         round: row.round,
         groupLabel: row.group_label,
-        team1Name: team1Info?.name ?? "Unknown",
-        team2Name: team2Info?.name ?? "Unknown",
-        team1RegistrationId: team1.id,
-        team2RegistrationId: team2.id,
-        team1TeamId: team1.team_id,
-        team2TeamId: team2.team_id,
+        team1Name: team1Info?.name ?? "TBD",
+        team2Name: team2Info?.name ?? "TBD",
+        team1RegistrationId: team1?.id ?? null,
+        team2RegistrationId: team2?.id ?? null,
+        team1TeamId: team1?.team_id ?? null,
+        team2TeamId: team2?.team_id ?? null,
         score: scoreRow
           ? {
               score1: scoreRow.score1,
@@ -67,8 +67,7 @@ export async function getFixtures(tournamentId: string): Promise<FixtureWithTeam
             }
           : null,
       };
-    })
-    .filter((f): f is FixtureWithTeams => f !== null);
+    });
 }
 
 export type StandingsRow = {

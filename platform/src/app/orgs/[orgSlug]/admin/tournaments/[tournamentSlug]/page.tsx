@@ -7,6 +7,7 @@ import { AddCompetitionForm } from "./add-competition-form";
 import { AddPitchForm } from "./add-pitch-form";
 import { PublishButton } from "./publish-button";
 import { GenerateFixturesForm } from "./generate-fixtures-form";
+import { GenerateKnockoutForm } from "./generate-knockout-form";
 
 type Props = { params: Promise<{ orgSlug: string; tournamentSlug: string }> };
 
@@ -86,6 +87,12 @@ async function AdminContent({ params }: Props) {
       <section className="flex flex-col gap-2">
         <h2 className="font-medium">Fixtures</h2>
         <GenerateFixturesForm
+          tournamentId={tournament.id}
+          orgSlug={orgSlug}
+          tournamentSlug={tournamentSlug}
+          competitions={tournament.competitions}
+        />
+        <GenerateKnockoutForm
           tournamentId={tournament.id}
           orgSlug={orgSlug}
           tournamentSlug={tournamentSlug}

@@ -23,6 +23,10 @@ export function FixtureControls({
   canAct: boolean;
 }) {
   if (!canAct) return null;
+  // TBD fixture (a later knockout round whose feeder match isn't decided
+  // yet) — the real guard is submit_score's own fixture lookup, this is
+  // just to avoid showing a form for a match nobody can play yet.
+  if (!fixture.team1RegistrationId || !fixture.team2RegistrationId) return null;
 
   if (!fixture.score) {
     return <SubmitForm fixtureId={fixture.id} />;
@@ -48,6 +52,10 @@ function SubmitForm({ fixtureId }: { fixtureId: string }) {
       <input name="score1" type="number" min={0} required className="w-12 rounded border border-zinc-300 px-1 py-0.5" />
       <span>-</span>
       <input name="score2" type="number" min={0} required className="w-12 rounded border border-zinc-300 px-1 py-0.5" />
+      <span className="text-zinc-400">pens (if level):</span>
+      <input name="penScore1" type="number" min={0} className="w-10 rounded border border-zinc-300 px-1 py-0.5" />
+      <span>-</span>
+      <input name="penScore2" type="number" min={0} className="w-10 rounded border border-zinc-300 px-1 py-0.5" />
       <button type="submit" disabled={pending} className="rounded border border-zinc-300 px-2 py-0.5">
         {pending ? "…" : "Submit"}
       </button>
