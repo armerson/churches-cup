@@ -41,6 +41,9 @@ async function SessionPanel() {
       <Suspense fallback={<p className="text-sm text-zinc-400">Loading your organisations…</p>}>
         <MembershipsList />
       </Suspense>
+      <Link href="/teams" className="text-sm underline">
+        My teams
+      </Link>
       <form action={signOut}>
         <button type="submit" className="text-sm underline">
           Sign out
