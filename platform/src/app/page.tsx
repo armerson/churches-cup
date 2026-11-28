@@ -53,6 +53,8 @@ async function SessionPanel() {
   );
 }
 
+const ADMIN_ROLES = new Set(["org_admin", "tournament_admin"]);
+
 async function MembershipsList() {
   const memberships = await getCurrentMemberships();
 
@@ -65,6 +67,14 @@ async function MembershipsList() {
       {memberships.map((m) => (
         <li key={`${m.orgId}-${m.role}`}>
           {m.orgName} — {m.role}
+          {ADMIN_ROLES.has(m.role) && (
+            <>
+              {" · "}
+              <Link href={`/orgs/${m.orgSlug}/admin`} className="underline">
+                Admin dashboard
+              </Link>
+            </>
+          )}
         </li>
       ))}
     </ul>
