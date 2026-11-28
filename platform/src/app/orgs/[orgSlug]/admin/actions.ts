@@ -8,6 +8,7 @@ import { persistGeneratedBracket } from "@/lib/bracket";
 import { getFixtures } from "@/lib/fixtures";
 import { allGroupsComplete, getGroupPositionEntrants } from "@/lib/progression";
 import { isOrgAdmin } from "@/lib/orgs";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type FormState = { error: string | null };
 
@@ -218,6 +219,120 @@ export async function deleteCompetition(
     .eq("competition_id", competitionId)
     .eq("tournament_id", tournamentId);
   await supabase.from("competitions").delete().eq("id", competitionId);
+
+  redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);
+}
+
+const MAX_TEST_TEAMS = 128;
+
+// Creates N dummy confirmed registrations so an admin can generate real
+// fixtures/brackets and check the competition setup (group counts,
+// Championship/Plate/Shield position ranges, Shield's auto-feed) before
+// any real team has entered — "preview tournament setup". Teams are
+// flagged is_test so clearTestData() below can find and remove exactly
+// what this created, and nothing else.
+export async function createTestRegistrations(
+  tournamentId: string,
+  orgSlug: string,
+  tournamentSlug: string,
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (!(await isOrgAdmin(orgSlug))) {
+    return { error: "Not authorised." };
+  }
+
+  const count = Math.min(MAX_TEST_TEAMS, Math.max(2, toIntOrNull(formData.get("count")) ?? 0));
+  if (count < 2) {
+    return { error: "Need at least 2 test teams." };
+  }
+
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) {
+    return { error: "Not signed in." };
+  }
+
+  // Find a free "Test Team N" range so repeated previews don't collide
+  // with whatever the last preview's clear step may have missed.
+  const { data: existing } = await supabase
+    .from("teams")
+    .select("name")
+    .eq("is_test", true)
+    .like("name", "Test Team %");
+  const usedNumbers = new Set(
+    (existing ?? [])
+      .map((t) => Number.parseInt(t.name.replace("Test Team ", ""), 10))
+      .filter((n) => Number.isFinite(n)),
+  );
+  let nextNumber = 1;
+  const names: string[] = [];
+  while (names.length < count) {
+    if (!usedNumbers.has(nextNumber)) names.push(`Test Team ${nextNumber}`);
+    nextNumber += 1;
+  }
+
+  const { data: teams, error: teamsError } = await supabase
+    .from("teams")
+    .insert(names.map((name) => ({ name, created_by: userId, is_test: true })))
+    .select("id");
+  if (teamsError) {
+    return { error: teamsError.message };
+  }
+
+  const { error: regError } = await supabase.from("registrations").insert(
+    (teams ?? []).map((t) => ({
+      tournament_id: tournamentId,
+      team_id: t.id,
+      status: "confirmed",
+    })),
+  );
+  if (regError) {
+    return { error: regError.message };
+  }
+
+  redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);
+}
+
+// Removes everything the preview above created (and any fixtures/
+// bracket progress generated from it), so the setup can be tweaked and
+// re-previewed from a clean slate. Assumes a tournament being previewed
+// has no real registrations yet — it wipes ALL of this tournament's
+// fixtures and bracket progress, not only fixtures involving test teams.
+export async function clearTestData(tournamentId: string, orgSlug: string, tournamentSlug: string) {
+  if (!(await isOrgAdmin(orgSlug))) {
+    redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);
+  }
+
+  const supabase = await createClient();
+
+  const { data: competitions } = await supabase
+    .from("competitions")
+    .select("id")
+    .eq("tournament_id", tournamentId);
+  const competitionIds = (competitions ?? []).map((c) => c.id);
+  if (competitionIds.length > 0) {
+    // bracket_stages has no authenticated-role write policy at all (see
+    // AGENTS.md) — the service-role client is the only path in, used here
+    // as the trusted consequence of the isOrgAdmin check just above.
+    const admin = createAdminClient();
+    await admin.from("bracket_stages").delete().in("competition_id", competitionIds);
+  }
+
+  await supabase.from("fixtures").delete().eq("tournament_id", tournamentId);
+
+  const { data: testRegistrations } = await supabase
+    .from("registrations")
+    .select("team_id, teams!inner(is_test)")
+    .eq("tournament_id", tournamentId)
+    .eq("teams.is_test", true);
+  const testTeamIds = [...new Set((testRegistrations ?? []).map((r) => r.team_id as string))];
+  if (testTeamIds.length > 0) {
+    // Deleting the team cascades its registration (and roster/contact
+    // rows) away — no separate registrations delete needed.
+    await supabase.from("teams").delete().in("id", testTeamIds);
+  }
 
   redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);
 }
