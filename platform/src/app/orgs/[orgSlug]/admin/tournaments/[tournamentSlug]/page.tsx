@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { isOrgAdmin } from "@/lib/orgs";
 import { getTournamentAdminView } from "@/lib/tournaments";
 import { AddCompetitionForm } from "./add-competition-form";
+import { DeleteCompetitionButton } from "./delete-competition-button";
 import { AddPitchForm } from "./add-pitch-form";
 import { PublishButton } from "./publish-button";
 import { GenerateFixturesForm } from "./generate-fixtures-form";
@@ -83,18 +84,27 @@ async function AdminContent({ params }: Props) {
           {tournament.competitions.map((c) => {
             const feeder = tournament.competitions.find((other) => other.id === c.feederCompetitionId);
             return (
-              <li key={c.id}>
-                {c.name} ({c.format.replace(/_/g, " ")})
-                {c.advanceFromPositionStart != null && (
-                  <span className="text-zinc-500">
-                    {" "}
-                    · group pos. {c.advanceFromPositionStart}
-                    {c.advanceFromPositionEnd !== c.advanceFromPositionStart
-                      ? `–${c.advanceFromPositionEnd}`
-                      : ""}
-                  </span>
-                )}
-                {feeder && <span className="text-zinc-500"> · + {feeder.name} round-1 losers</span>}
+              <li key={c.id} className="flex items-center justify-between gap-2">
+                <span>
+                  {c.name} ({c.format.replace(/_/g, " ")})
+                  {c.advanceFromPositionStart != null && (
+                    <span className="text-zinc-500">
+                      {" "}
+                      · group pos. {c.advanceFromPositionStart}
+                      {c.advanceFromPositionEnd !== c.advanceFromPositionStart
+                        ? `–${c.advanceFromPositionEnd}`
+                        : ""}
+                    </span>
+                  )}
+                  {feeder && <span className="text-zinc-500"> · + {feeder.name} round-1 losers</span>}
+                </span>
+                <DeleteCompetitionButton
+                  tournamentId={tournament.id}
+                  orgSlug={orgSlug}
+                  tournamentSlug={tournamentSlug}
+                  competitionId={c.id}
+                  competitionName={c.name}
+                />
               </li>
             );
           })}

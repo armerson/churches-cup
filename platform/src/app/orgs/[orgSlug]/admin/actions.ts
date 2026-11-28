@@ -195,6 +195,33 @@ export async function addCompetition(
   redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);
 }
 
+export async function deleteCompetition(
+  tournamentId: string,
+  orgSlug: string,
+  tournamentSlug: string,
+  competitionId: string,
+) {
+  // Explicit re-check, same reasoning as generateKnockoutFixtures — this
+  // also deletes fixtures directly rather than relying on the column's
+  // on-delete-set-null behaviour (see the competitions FK comment in
+  // 20261127180000_core_schema.sql), since a competition being deleted
+  // here is being removed because it was misconfigured, not because an
+  // admin wants its fixtures orphaned-but-kept.
+  if (!(await isOrgAdmin(orgSlug))) {
+    redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);
+  }
+
+  const supabase = await createClient();
+  await supabase
+    .from("fixtures")
+    .delete()
+    .eq("competition_id", competitionId)
+    .eq("tournament_id", tournamentId);
+  await supabase.from("competitions").delete().eq("id", competitionId);
+
+  redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);
+}
+
 const GROUP_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 export async function generateGroupFixtures(

@@ -1,10 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { addCompetition, type FormState } from "../../actions";
 import type { Competition } from "@/lib/tournaments";
 
 const initialState: FormState = { error: null };
+
+// "From place N to place M" presets covering the common group-stage
+// shapes (set both fields so most admins never have to type a number),
+// matching churches-cup's own Championship/Plate/Shield structure.
+const PRESETS = [
+  { label: "Everyone (no group seeding)", start: "", end: "" },
+  { label: "Top 2 per group", start: "1", end: "2" },
+  { label: "Group winners only", start: "1", end: "1" },
+  { label: "3rd place per group", start: "3", end: "3" },
+  { label: "Bottom team per group", start: "4", end: "4" },
+];
 
 export function AddCompetitionForm({
   tournamentId,
@@ -19,12 +30,14 @@ export function AddCompetitionForm({
 }) {
   const boundAction = addCompetition.bind(null, tournamentId, orgSlug, tournamentSlug);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
+  const startRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLInputElement>(null);
 
   return (
-    <form action={formAction} className="flex flex-col gap-2">
+    <form action={formAction} className="flex flex-col gap-3 rounded border border-zinc-200 p-3">
       <div className="flex items-end gap-2">
         <label className="flex flex-col gap-1 text-sm">
-          Competition
+          Competition name
           <input
             name="name"
             type="text"
@@ -40,48 +53,73 @@ export function AddCompetitionForm({
         </select>
       </div>
 
-      <div className="flex items-end gap-2 text-sm">
-        <label className="flex flex-col gap-1">
-          Seed from group position
-          <input
-            name="advanceFromPositionStart"
-            type="number"
-            min={1}
-            placeholder="start (e.g. 1)"
-            className="w-32 rounded border border-zinc-300 px-2 py-1"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          to
-          <input
-            name="advanceFromPositionEnd"
-            type="number"
-            min={1}
-            placeholder="end (e.g. 2)"
-            className="w-32 rounded border border-zinc-300 px-2 py-1"
-          />
-        </label>
-        <span className="pb-1 text-xs text-zinc-400">
-          Leave both blank to seed from all confirmed registrations instead.
-        </span>
+      <div className="flex flex-col gap-2 border-t border-zinc-100 pt-2">
+        <p className="text-sm font-medium">Which teams play in it?</p>
+        <p className="text-xs text-zinc-500">
+          Based on where a team finishes in its group once group fixtures are confirmed. 1st
+          place is the group winner. Pick a preset, or set the range by hand below.
+        </p>
+        <div className="flex flex-wrap gap-1">
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => {
+                if (startRef.current) startRef.current.value = p.start;
+                if (endRef.current) endRef.current.value = p.end;
+              }}
+              className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-end gap-2 text-sm">
+          <label className="flex flex-col gap-1">
+            From place
+            <input
+              ref={startRef}
+              name="advanceFromPositionStart"
+              type="number"
+              min={1}
+              placeholder="e.g. 1"
+              className="w-24 rounded border border-zinc-300 px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            to place
+            <input
+              ref={endRef}
+              name="advanceFromPositionEnd"
+              type="number"
+              min={1}
+              placeholder="e.g. 2"
+              className="w-24 rounded border border-zinc-300 px-2 py-1"
+            />
+          </label>
+        </div>
       </div>
 
       {competitions.length > 0 && (
-        <label className="flex flex-col gap-1 text-sm">
-          Also takes round-1 losers of
-          <select name="feederCompetitionId" defaultValue="" className="rounded border border-zinc-300 px-2 py-1">
-            <option value="">— none —</option>
-            {competitions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-zinc-400">
-            For a Shield-style competition: it fills automatically once that competition&apos;s
-            first knockout round is confirmed, combined with any group-position seed above.
-          </span>
-        </label>
+        <div className="flex flex-col gap-2 border-t border-zinc-100 pt-2">
+          <p className="text-sm font-medium">Also take another competition&apos;s early losers?</p>
+          <p className="text-xs text-zinc-500">
+            Optional — use this for a Shield-style competition, e.g. 3rd place per group (above)
+            plus whoever loses their first match in the Championship. It fills in automatically
+            once that competition&apos;s first round is fully confirmed — nothing to click.
+          </p>
+          <label className="flex flex-col gap-1 text-sm">
+            Round-1 losers from
+            <select name="feederCompetitionId" defaultValue="" className="rounded border border-zinc-300 px-2 py-1">
+              <option value="">— none —</option>
+              {competitions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       )}
 
       <button
@@ -89,7 +127,7 @@ export function AddCompetitionForm({
         disabled={pending}
         className="w-fit rounded border border-zinc-300 px-2 py-1 text-sm"
       >
-        {pending ? "Adding…" : "Add"}
+        {pending ? "Adding…" : "Add competition"}
       </button>
       {state.error && <p className="text-xs text-red-600">{state.error}</p>}
     </form>
