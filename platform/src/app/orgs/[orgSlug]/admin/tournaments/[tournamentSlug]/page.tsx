@@ -35,12 +35,42 @@ async function AdminContent({ params }: Props) {
 
   return (
     <>
-      <div>
+      <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold">{tournament.name}</h1>
         <p className="text-sm text-zinc-500">
           Status: {tournament.status.replace("_", " ")} · {tournament.isPublic ? "Public" : "Private"}
           {tournament.maxTeams ? ` · ${tournament.maxTeams} team cap` : ""}
+          {tournament.ageCategory ? ` · ${tournament.ageCategory}` : ""}
         </p>
+        {(tournament.startsAt || tournament.endsAt) && (
+          <p className="text-sm text-zinc-500">
+            {tournament.startsAt}
+            {tournament.endsAt && tournament.endsAt !== tournament.startsAt ? ` – ${tournament.endsAt}` : ""}
+          </p>
+        )}
+        {(tournament.venue?.name || tournament.venue?.address) && (
+          <p className="text-sm text-zinc-500">
+            {[tournament.venue?.name, tournament.venue?.address].filter(Boolean).join(", ")}
+          </p>
+        )}
+        <p className="text-sm text-zinc-500">
+          Entry fee: {tournament.entryFeeCents > 0 ? `£${(tournament.entryFeeCents / 100).toFixed(2)}` : "Free"}
+        </p>
+        {tournament.registrationClosesAt && (
+          <p className="text-sm text-zinc-500">
+            Registration closes: {new Date(tournament.registrationClosesAt).toLocaleString()}
+          </p>
+        )}
+        {tournament.websiteRegistrationOpensAt && (
+          <p className="text-sm text-zinc-500">
+            Website registration opens: {new Date(tournament.websiteRegistrationOpensAt).toLocaleString()}
+          </p>
+        )}
+        {tournament.appRegistrationOpensAt && (
+          <p className="text-sm text-zinc-500">
+            App-exclusive registration opens: {new Date(tournament.appRegistrationOpensAt).toLocaleString()}
+          </p>
+        )}
       </div>
 
       {tournament.status === "draft" && (

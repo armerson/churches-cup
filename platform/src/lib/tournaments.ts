@@ -5,8 +5,16 @@ export type TournamentDetail = {
   id: string;
   name: string;
   status: string;
+  format: string;
+  ageCategory: string | null;
   maxTeams: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  venue: { name?: string; address?: string } | null;
+  entryFeeCents: number;
   registrationClosesAt: string | null;
+  websiteRegistrationOpensAt: string | null;
+  appRegistrationOpensAt: string | null;
   isPublic: boolean;
   orgName: string;
 };
@@ -22,7 +30,9 @@ export async function getTournamentBySlug(
   const { data, error } = await supabase
     .from("tournaments")
     .select(
-      "id, name, status, max_teams, registration_closes_at, is_public, organisations!inner(slug, name)",
+      `id, name, status, format, age_category, max_teams, starts_at, ends_at, venue,
+       entry_fee_cents, registration_closes_at, website_registration_opens_at,
+       app_registration_opens_at, is_public, organisations!inner(slug, name)`,
     )
     .eq("slug", tournamentSlug)
     .eq("organisations.slug", orgSlug)
@@ -38,8 +48,16 @@ export async function getTournamentBySlug(
     id: data.id,
     name: data.name,
     status: data.status,
+    format: data.format,
+    ageCategory: data.age_category,
     maxTeams: data.max_teams,
+    startsAt: data.starts_at,
+    endsAt: data.ends_at,
+    venue: data.venue,
+    entryFeeCents: data.entry_fee_cents,
     registrationClosesAt: data.registration_closes_at,
+    websiteRegistrationOpensAt: data.website_registration_opens_at,
+    appRegistrationOpensAt: data.app_registration_opens_at,
     isPublic: data.is_public,
     orgName: org?.name ?? "",
   };

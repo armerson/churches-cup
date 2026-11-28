@@ -18,6 +18,27 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function toIntOrNull(raw: FormDataEntryValue | null): number | null {
+  const str = String(raw ?? "").trim();
+  if (!str) return null;
+  const n = Number.parseInt(str, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toDateOrNull(raw: FormDataEntryValue | null): string | null {
+  const str = String(raw ?? "").trim();
+  return str || null;
+}
+
+function toTimestampOrNull(raw: FormDataEntryValue | null): string | null {
+  // <input type="datetime-local"> gives "2026-05-10T09:00" with no
+  // timezone — Postgres's timestamptz column treats a bare string like
+  // this as the server's local time, which is wrong; store it explicit.
+  const str = String(raw ?? "").trim();
+  if (!str) return null;
+  return new Date(str).toISOString();
+}
+
 export async function createTournament(
   orgSlug: string,
   _prevState: FormState,
@@ -25,11 +46,24 @@ export async function createTournament(
 ): Promise<FormState> {
   const name = String(formData.get("name") ?? "").trim();
   const format = String(formData.get("format") ?? "custom").trim();
-  const maxTeamsRaw = String(formData.get("maxTeams") ?? "").trim();
+  const ageCategory = String(formData.get("ageCategory") ?? "").trim() || null;
   const isPublic = formData.get("isPublic") === "on";
+  const maxTeams = toIntOrNull(formData.get("maxTeams"));
+  const startsAt = toDateOrNull(formData.get("startsAt"));
+  const endsAt = toDateOrNull(formData.get("endsAt"));
+  const venueName = String(formData.get("venueName") ?? "").trim();
+  const venueAddress = String(formData.get("venueAddress") ?? "").trim();
+  const entryFeePounds = String(formData.get("entryFee") ?? "").trim();
+  const entryFeeCents = entryFeePounds ? Math.round(Number.parseFloat(entryFeePounds) * 100) : 0;
+  const registrationClosesAt = toTimestampOrNull(formData.get("registrationClosesAt"));
+  const websiteRegistrationOpensAt = toTimestampOrNull(formData.get("websiteRegistrationOpensAt"));
+  const appRegistrationOpensAt = toTimestampOrNull(formData.get("appRegistrationOpensAt"));
 
   if (!name) {
     return { error: "Tournament name is required." };
+  }
+  if (!Number.isFinite(entryFeeCents) || entryFeeCents < 0) {
+    return { error: "Entry fee must be a valid amount." };
   }
 
   const orgId = await getOrgIdBySlug(orgSlug);
@@ -38,7 +72,7 @@ export async function createTournament(
   }
 
   const slug = slugify(name);
-  const maxTeams = maxTeamsRaw ? Number.parseInt(maxTeamsRaw, 10) : null;
+  const venue = venueName || venueAddress ? { name: venueName, address: venueAddress } : {};
 
   // No permission check here — the tournaments INSERT policy already
   // requires org_admin/tournament_admin via has_org_role(); a non-admin's
@@ -49,8 +83,16 @@ export async function createTournament(
     name,
     slug,
     format,
-    max_teams: Number.isFinite(maxTeams) ? maxTeams : null,
+    age_category: ageCategory,
+    max_teams: maxTeams,
     is_public: isPublic,
+    starts_at: startsAt,
+    ends_at: endsAt,
+    venue,
+    entry_fee_cents: entryFeeCents,
+    registration_closes_at: registrationClosesAt,
+    website_registration_opens_at: websiteRegistrationOpensAt,
+    app_registration_opens_at: appRegistrationOpensAt,
   });
 
   if (error) {
