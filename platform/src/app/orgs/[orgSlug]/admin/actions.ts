@@ -97,6 +97,11 @@ export async function createTournament(
   });
 
   if (error) {
+    if (error.code === "23505") {
+      return {
+        error: `A tournament named "${name}" already exists for this organisation — pick a different name, or go to its existing admin page instead.`,
+      };
+    }
     return { error: error.message };
   }
 

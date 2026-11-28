@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { isOrgAdmin } from "@/lib/orgs";
 import { createClient } from "@/lib/supabase/server";
-import { getOrgIdBySlug } from "@/lib/tournaments";
+import { getOrgIdBySlug, listOrgTournaments } from "@/lib/tournaments";
 import { ConnectStripeButton } from "./stripe/connect-stripe-button";
 
 type Props = { params: Promise<{ orgSlug: string }> };
@@ -27,11 +27,14 @@ async function OrgAdminContent({ params }: Props) {
   if (!orgId) notFound();
 
   const supabase = await createClient();
-  const { data: org } = await supabase
-    .from("organisations")
-    .select("name, stripe_account_id, stripe_onboarding_complete")
-    .eq("id", orgId)
-    .maybeSingle();
+  const [{ data: org }, tournaments] = await Promise.all([
+    supabase
+      .from("organisations")
+      .select("name, stripe_account_id, stripe_onboarding_complete")
+      .eq("id", orgId)
+      .maybeSingle(),
+    listOrgTournaments(orgId),
+  ]);
 
   return (
     <>
@@ -55,9 +58,23 @@ async function OrgAdminContent({ params }: Props) {
         )}
       </section>
 
-      <Link href={`/orgs/${orgSlug}/admin/tournaments/new`} className="text-sm underline">
-        + New tournament
-      </Link>
+      <section className="flex flex-col gap-2">
+        <h2 className="font-medium">Tournaments</h2>
+        <ul className="flex flex-col gap-1 text-sm">
+          {tournaments.map((t) => (
+            <li key={t.id}>
+              <Link href={`/orgs/${orgSlug}/admin/tournaments/${t.slug}`} className="underline">
+                {t.name}
+              </Link>
+              <span className="text-zinc-500"> · {t.status.replace("_", " ")}</span>
+            </li>
+          ))}
+          {tournaments.length === 0 && <li className="text-zinc-500">No tournaments yet.</li>}
+        </ul>
+        <Link href={`/orgs/${orgSlug}/admin/tournaments/new`} className="text-sm underline">
+          + New tournament
+        </Link>
+      </section>
     </>
   );
 }

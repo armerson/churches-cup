@@ -82,6 +82,18 @@ export async function getMyRegisteredTeamIds(tournamentId: string): Promise<Set<
   return new Set((data ?? []).map((r) => r.team_id));
 }
 
+export type OrgTournamentSummary = { id: string; name: string; slug: string; status: string };
+
+export async function listOrgTournaments(orgId: string): Promise<OrgTournamentSummary[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tournaments")
+    .select("id, name, slug, status")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
 export async function getOrgIdBySlug(orgSlug: string): Promise<string | null> {
   const supabase = await createClient();
   const { data } = await supabase
