@@ -11,6 +11,45 @@ import { isOrgAdmin } from "@/lib/orgs";
 
 export type FormState = { error: string | null };
 
+// Raw (unparsed) field values from a failed createTournament submission,
+// so the form can redisplay exactly what was typed instead of losing it —
+// see CreateTournamentFormState below.
+export type TournamentFormValues = {
+  name: string;
+  format: string;
+  ageCategory: string;
+  isPublic: boolean;
+  maxTeams: string;
+  startsAt: string;
+  endsAt: string;
+  venueName: string;
+  venueAddress: string;
+  entryFee: string;
+  registrationClosesAt: string;
+  websiteRegistrationOpensAt: string;
+  appRegistrationOpensAt: string;
+};
+
+export type CreateTournamentFormState = FormState & { values?: TournamentFormValues };
+
+function tournamentFormValuesFrom(formData: FormData): TournamentFormValues {
+  return {
+    name: String(formData.get("name") ?? ""),
+    format: String(formData.get("format") ?? ""),
+    ageCategory: String(formData.get("ageCategory") ?? ""),
+    isPublic: formData.get("isPublic") === "on",
+    maxTeams: String(formData.get("maxTeams") ?? ""),
+    startsAt: String(formData.get("startsAt") ?? ""),
+    endsAt: String(formData.get("endsAt") ?? ""),
+    venueName: String(formData.get("venueName") ?? ""),
+    venueAddress: String(formData.get("venueAddress") ?? ""),
+    entryFee: String(formData.get("entryFee") ?? ""),
+    registrationClosesAt: String(formData.get("registrationClosesAt") ?? ""),
+    websiteRegistrationOpensAt: String(formData.get("websiteRegistrationOpensAt") ?? ""),
+    appRegistrationOpensAt: String(formData.get("appRegistrationOpensAt") ?? ""),
+  };
+}
+
 function slugify(name: string): string {
   return name
     .toLowerCase()
@@ -42,9 +81,10 @@ function toTimestampOrNull(raw: FormDataEntryValue | null): string | null {
 
 export async function createTournament(
   orgSlug: string,
-  _prevState: FormState,
+  _prevState: CreateTournamentFormState,
   formData: FormData,
-): Promise<FormState> {
+): Promise<CreateTournamentFormState> {
+  const values = tournamentFormValuesFrom(formData);
   const name = String(formData.get("name") ?? "").trim();
   const format = String(formData.get("format") ?? "custom").trim();
   const ageCategory = String(formData.get("ageCategory") ?? "").trim() || null;
@@ -61,15 +101,15 @@ export async function createTournament(
   const appRegistrationOpensAt = toTimestampOrNull(formData.get("appRegistrationOpensAt"));
 
   if (!name) {
-    return { error: "Tournament name is required." };
+    return { error: "Tournament name is required.", values };
   }
   if (!Number.isFinite(entryFeeCents) || entryFeeCents < 0) {
-    return { error: "Entry fee must be a valid amount." };
+    return { error: "Entry fee must be a valid amount.", values };
   }
 
   const orgId = await getOrgIdBySlug(orgSlug);
   if (!orgId) {
-    return { error: "Organisation not found." };
+    return { error: "Organisation not found.", values };
   }
 
   const slug = slugify(name);
@@ -99,10 +139,11 @@ export async function createTournament(
   if (error) {
     if (error.code === "23505") {
       return {
-        error: `A tournament named "${name}" already exists for this organisation — pick a different name, or go to its existing admin page instead.`,
+        error: `A tournament named "${name}" already exists for this organisation — change the name below and resubmit, or go to its existing admin page instead.`,
+        values,
       };
     }
-    return { error: error.message };
+    return { error: error.message, values };
   }
 
   redirect(`/orgs/${orgSlug}/admin/tournaments/${slug}`);

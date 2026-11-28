@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
-import { createTournament, type FormState } from "../../actions";
+import { createTournament, type CreateTournamentFormState } from "../../actions";
 
-const initialState: FormState = { error: null };
+const initialState: CreateTournamentFormState = { error: null };
 
 export function NewTournamentForm({ orgSlug }: { orgSlug: string }) {
   const boundAction = createTournament.bind(null, orgSlug);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
+  const v = state.values;
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -17,7 +18,13 @@ export function NewTournamentForm({ orgSlug }: { orgSlug: string }) {
         </legend>
         <label className="flex flex-col gap-1 text-sm">
           Name
-          <input name="name" type="text" required className="rounded border border-zinc-300 px-3 py-2" />
+          <input
+            name="name"
+            type="text"
+            required
+            defaultValue={v?.name}
+            className="rounded border border-zinc-300 px-3 py-2"
+          />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Format
@@ -25,6 +32,7 @@ export function NewTournamentForm({ orgSlug }: { orgSlug: string }) {
             name="format"
             type="text"
             placeholder="e.g. churches_cup, five_a_side, adult_11_a_side"
+            defaultValue={v?.format}
             className="rounded border border-zinc-300 px-3 py-2"
           />
         </label>
@@ -34,15 +42,22 @@ export function NewTournamentForm({ orgSlug }: { orgSlug: string }) {
             name="ageCategory"
             type="text"
             placeholder="e.g. Adult, U16, Open"
+            defaultValue={v?.ageCategory}
             className="rounded border border-zinc-300 px-3 py-2"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Max teams
-          <input name="maxTeams" type="number" min={1} className="rounded border border-zinc-300 px-3 py-2" />
+          <input
+            name="maxTeams"
+            type="number"
+            min={1}
+            defaultValue={v?.maxTeams}
+            className="rounded border border-zinc-300 px-3 py-2"
+          />
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input name="isPublic" type="checkbox" defaultChecked />
+          <input name="isPublic" type="checkbox" defaultChecked={v?.isPublic ?? true} />
           Public (visible on the tournament discovery page)
         </label>
       </fieldset>
@@ -54,20 +69,40 @@ export function NewTournamentForm({ orgSlug }: { orgSlug: string }) {
         <div className="flex gap-3">
           <label className="flex flex-1 flex-col gap-1 text-sm">
             Starts
-            <input name="startsAt" type="date" className="rounded border border-zinc-300 px-3 py-2" />
+            <input
+              name="startsAt"
+              type="date"
+              defaultValue={v?.startsAt}
+              className="rounded border border-zinc-300 px-3 py-2"
+            />
           </label>
           <label className="flex flex-1 flex-col gap-1 text-sm">
             Ends
-            <input name="endsAt" type="date" className="rounded border border-zinc-300 px-3 py-2" />
+            <input
+              name="endsAt"
+              type="date"
+              defaultValue={v?.endsAt}
+              className="rounded border border-zinc-300 px-3 py-2"
+            />
           </label>
         </div>
         <label className="flex flex-col gap-1 text-sm">
           Venue name
-          <input name="venueName" type="text" className="rounded border border-zinc-300 px-3 py-2" />
+          <input
+            name="venueName"
+            type="text"
+            defaultValue={v?.venueName}
+            className="rounded border border-zinc-300 px-3 py-2"
+          />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Venue address
-          <input name="venueAddress" type="text" className="rounded border border-zinc-300 px-3 py-2" />
+          <input
+            name="venueAddress"
+            type="text"
+            defaultValue={v?.venueAddress}
+            className="rounded border border-zinc-300 px-3 py-2"
+          />
         </label>
       </fieldset>
 
@@ -77,17 +112,30 @@ export function NewTournamentForm({ orgSlug }: { orgSlug: string }) {
         </legend>
         <label className="flex flex-col gap-1 text-sm">
           Entry fee (£, leave blank or 0 for free)
-          <input name="entryFee" type="number" min={0} step="0.01" className="rounded border border-zinc-300 px-3 py-2" />
+          <input
+            name="entryFee"
+            type="number"
+            min={0}
+            step="0.01"
+            defaultValue={v?.entryFee}
+            className="rounded border border-zinc-300 px-3 py-2"
+          />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Registration closes
-          <input name="registrationClosesAt" type="datetime-local" className="rounded border border-zinc-300 px-3 py-2" />
+          <input
+            name="registrationClosesAt"
+            type="datetime-local"
+            defaultValue={v?.registrationClosesAt}
+            className="rounded border border-zinc-300 px-3 py-2"
+          />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Website registration opens
           <input
             name="websiteRegistrationOpensAt"
             type="datetime-local"
+            defaultValue={v?.websiteRegistrationOpensAt}
             className="rounded border border-zinc-300 px-3 py-2"
           />
         </label>
@@ -96,6 +144,7 @@ export function NewTournamentForm({ orgSlug }: { orgSlug: string }) {
           <input
             name="appRegistrationOpensAt"
             type="datetime-local"
+            defaultValue={v?.appRegistrationOpensAt}
             className="rounded border border-zinc-300 px-3 py-2"
           />
           <span className="text-xs text-zinc-400">
