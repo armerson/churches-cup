@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOrgIdBySlug } from "@/lib/tournaments";
 import { splitIntoGroups, generateRoundRobinFixtures } from "@/lib/scheduling";
-import { generateKnockoutBracket } from "@/lib/bracket";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { persistGeneratedBracket } from "@/lib/bracket";
+import { getFixtures } from "@/lib/fixtures";
+import { allGroupsComplete, getGroupPositionEntrants } from "@/lib/progression";
 import { isOrgAdmin } from "@/lib/orgs";
 
 export type FormState = { error: string | null };
@@ -120,15 +121,26 @@ export async function addCompetition(
 ): Promise<FormState> {
   const name = String(formData.get("name") ?? "").trim();
   const format = String(formData.get("format") ?? "knockout");
+  const advanceFromPositionStart = toIntOrNull(formData.get("advanceFromPositionStart"));
+  const advanceFromPositionEnd = toIntOrNull(formData.get("advanceFromPositionEnd"));
+  const feederCompetitionId = String(formData.get("feederCompetitionId") ?? "").trim() || null;
 
   if (!name) {
     return { error: "Competition name is required." };
   }
+  if ((advanceFromPositionStart == null) !== (advanceFromPositionEnd == null)) {
+    return { error: "Give both a start and end group position, or neither." };
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("competitions")
-    .insert({ tournament_id: tournamentId, name, format });
+  const { error } = await supabase.from("competitions").insert({
+    tournament_id: tournamentId,
+    name,
+    format,
+    advance_from_position_start: advanceFromPositionStart,
+    advance_from_position_end: advanceFromPositionEnd,
+    feeder_competition_id: feederCompetitionId,
+  });
 
   if (error) {
     return { error: error.message };
@@ -227,58 +239,62 @@ export async function generateKnockoutFixtures(
   }
 
   const supabase = await createClient();
-  const { data: registrations, error: regError } = await supabase
-    .from("registrations")
-    .select("id")
-    .eq("tournament_id", tournamentId)
-    .eq("status", "confirmed");
-
-  if (regError) {
-    return { error: regError.message };
-  }
-  if (!registrations || registrations.length < 2) {
-    return { error: "Need at least 2 confirmed registrations to generate a bracket." };
-  }
-
   const { data: competition, error: compError } = await supabase
     .from("competitions")
-    .select("name")
+    .select("name, advance_from_position_start, advance_from_position_end, feeder_competition_id")
     .eq("id", competitionId)
     .maybeSingle();
   if (compError || !competition) {
     return { error: "Competition not found." };
   }
 
-  const { data: bracketData, participantMap, fixtures } = await generateKnockoutBracket(
-    competition.name,
-    registrations.map((r) => r.id as string),
-  );
-
-  // bracket_stages has no client-facing write policy (see its migration) —
-  // only this service-role write path creates/updates it, immediately
-  // after the isOrgAdmin re-check above.
-  const admin = createAdminClient();
-  const { error: stageError } = await admin.from("bracket_stages").upsert({
-    competition_id: competitionId,
-    participant_map: participantMap,
-    data: bracketData,
-  });
-  if (stageError) {
-    return { error: stageError.message };
+  // A feeder-fed competition (Shield taking Championship's round-1
+  // losers) generates itself automatically — see
+  // lib/bracket.ts's maybeAutoGenerateFeederCompetitions(), triggered from
+  // advanceBracket() once the feeder's round 1 is fully confirmed. There's
+  // nothing for a manual click to do here.
+  if (competition.feeder_competition_id) {
+    return {
+      error:
+        "This competition fills automatically once its feeder competition's first round is confirmed — it can't be generated manually.",
+    };
   }
 
-  const { error: insertError } = await supabase.from("fixtures").insert(
-    fixtures.map((f) => ({
-      tournament_id: tournamentId,
-      competition_id: competitionId,
-      round: f.round,
-      bracket_match_id: f.bracketMatchId,
-      team1_registration_id: f.team1RegistrationId,
-      team2_registration_id: f.team2RegistrationId,
-    })),
+  let registrationIds: string[];
+  if (competition.advance_from_position_start != null && competition.advance_from_position_end != null) {
+    const fixtures = await getFixtures(tournamentId);
+    if (!allGroupsComplete(fixtures)) {
+      return { error: "Not every group has finished its round-robin yet." };
+    }
+    registrationIds = getGroupPositionEntrants(
+      fixtures,
+      competition.advance_from_position_start,
+      competition.advance_from_position_end,
+    );
+  } else {
+    const { data: registrations, error: regError } = await supabase
+      .from("registrations")
+      .select("id")
+      .eq("tournament_id", tournamentId)
+      .eq("status", "confirmed");
+    if (regError) {
+      return { error: regError.message };
+    }
+    registrationIds = (registrations ?? []).map((r) => r.id as string);
+  }
+
+  if (registrationIds.length < 2) {
+    return { error: "Need at least 2 teams to generate a bracket." };
+  }
+
+  const { error } = await persistGeneratedBracket(
+    tournamentId,
+    competitionId,
+    competition.name,
+    registrationIds,
   );
-  if (insertError) {
-    return { error: insertError.message };
+  if (error) {
+    return { error };
   }
 
   redirect(`/orgs/${orgSlug}/admin/tournaments/${tournamentSlug}`);

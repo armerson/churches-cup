@@ -1,4 +1,5 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "./supabase/server";
 
 export type FixtureScore = {
@@ -24,8 +25,16 @@ export type FixtureWithTeams = {
 };
 
 // Not cached — reads the session cookie, must sit behind Suspense.
-export async function getFixtures(tournamentId: string): Promise<FixtureWithTeams[]> {
-  const supabase = await createClient();
+// `client` lets an internal, already-privileged caller (lib/bracket.ts's
+// feeder-competition auto-generation, which runs via the service-role
+// client as a trusted consequence of a confirmed score — see its own
+// comment) pass its own client instead of opening a new per-request one
+// that would try to read cookies outside of a request/Suspense context.
+export async function getFixtures(
+  tournamentId: string,
+  client?: SupabaseClient,
+): Promise<FixtureWithTeams[]> {
+  const supabase = client ?? (await createClient());
   const { data, error } = await supabase
     .from("fixtures")
     .select(
@@ -72,6 +81,11 @@ export async function getFixtures(tournamentId: string): Promise<FixtureWithTeam
 
 export type StandingsRow = {
   teamName: string;
+  // Null only if a team never appears as team1 in any fixture passed in
+  // (shouldn't happen for a real round-robin group, but calculateStandings
+  // doesn't assume it) — group-position-based seeding should treat a null
+  // registrationId as "skip this position", not crash.
+  registrationId: string | null;
   played: number;
   won: number;
   drawn: number;
@@ -94,11 +108,23 @@ export function calculateStandings(
     ? fixtures.filter((f) => f.groupLabel === groupLabel)
     : fixtures;
 
-  function ensure(name: string): StandingsRow {
+  function ensure(name: string, registrationId: string | null): StandingsRow {
     let row = table.get(name);
     if (!row) {
-      row = { teamName: name, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+      row = {
+        teamName: name,
+        registrationId,
+        played: 0,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        points: 0,
+      };
       table.set(name, row);
+    } else if (!row.registrationId && registrationId) {
+      row.registrationId = registrationId;
     }
     return row;
   }
@@ -108,8 +134,8 @@ export function calculateStandings(
     const { score1, score2 } = f.score;
     if (score1 == null || score2 == null) continue;
 
-    const t1 = ensure(f.team1Name);
-    const t2 = ensure(f.team2Name);
+    const t1 = ensure(f.team1Name, f.team1RegistrationId);
+    const t2 = ensure(f.team2Name, f.team2RegistrationId);
 
     t1.played += 1;
     t2.played += 1;

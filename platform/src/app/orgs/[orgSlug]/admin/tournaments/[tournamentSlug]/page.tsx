@@ -80,11 +80,24 @@ async function AdminContent({ params }: Props) {
       <section className="flex flex-col gap-2">
         <h2 className="font-medium">Competitions</h2>
         <ul className="flex flex-col gap-1 text-sm">
-          {tournament.competitions.map((c) => (
-            <li key={c.id}>
-              {c.name} ({c.format.replace(/_/g, " ")})
-            </li>
-          ))}
+          {tournament.competitions.map((c) => {
+            const feeder = tournament.competitions.find((other) => other.id === c.feederCompetitionId);
+            return (
+              <li key={c.id}>
+                {c.name} ({c.format.replace(/_/g, " ")})
+                {c.advanceFromPositionStart != null && (
+                  <span className="text-zinc-500">
+                    {" "}
+                    · group pos. {c.advanceFromPositionStart}
+                    {c.advanceFromPositionEnd !== c.advanceFromPositionStart
+                      ? `–${c.advanceFromPositionEnd}`
+                      : ""}
+                  </span>
+                )}
+                {feeder && <span className="text-zinc-500"> · + {feeder.name} round-1 losers</span>}
+              </li>
+            );
+          })}
           {tournament.competitions.length === 0 && (
             <li className="text-zinc-500">No competitions yet.</li>
           )}
@@ -93,6 +106,7 @@ async function AdminContent({ params }: Props) {
           tournamentId={tournament.id}
           orgSlug={orgSlug}
           tournamentSlug={tournamentSlug}
+          competitions={tournament.competitions}
         />
       </section>
 

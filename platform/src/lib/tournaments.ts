@@ -92,7 +92,14 @@ export async function getOrgIdBySlug(orgSlug: string): Promise<string | null> {
   return data?.id ?? null;
 }
 
-export type Competition = { id: string; name: string; format: string };
+export type Competition = {
+  id: string;
+  name: string;
+  format: string;
+  advanceFromPositionStart: number | null;
+  advanceFromPositionEnd: number | null;
+  feederCompetitionId: string | null;
+};
 export type Pitch = { id: string; name: string; colour: string | null };
 
 export type TournamentAdminView = TournamentDetail & {
@@ -109,13 +116,23 @@ export async function getTournamentAdminView(
 
   const supabase = await createClient();
   const [competitions, pitches] = await Promise.all([
-    supabase.from("competitions").select("id, name, format").eq("tournament_id", tournament.id),
+    supabase
+      .from("competitions")
+      .select("id, name, format, advance_from_position_start, advance_from_position_end, feeder_competition_id")
+      .eq("tournament_id", tournament.id),
     supabase.from("pitches").select("id, name, colour").eq("tournament_id", tournament.id),
   ]);
 
   return {
     ...tournament,
-    competitions: competitions.data ?? [],
+    competitions: (competitions.data ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      format: c.format,
+      advanceFromPositionStart: c.advance_from_position_start,
+      advanceFromPositionEnd: c.advance_from_position_end,
+      feederCompetitionId: c.feeder_competition_id,
+    })),
     pitches: pitches.data ?? [],
   };
 }

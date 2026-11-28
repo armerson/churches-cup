@@ -3,6 +3,8 @@ import { BracketsManager } from "brackets-manager";
 import { InMemoryDatabase } from "brackets-memory-db";
 import type { Database, Table } from "brackets-model";
 import { createAdminClient } from "./supabase/admin";
+import { getFixtures } from "./fixtures";
+import { allGroupsComplete, getGroupPositionEntrants } from "./progression";
 
 const TABLES: Table[] = ["participant", "stage", "group", "round", "match", "match_game"];
 
@@ -98,6 +100,126 @@ function extractFixtures(
   });
 }
 
+// Shared by the admin "generate knockout bracket" action and the
+// feeder-competition auto-generation below — writes a freshly generated
+// bracket's bracket_stages row and fixtures, via the service-role client
+// (bracket_stages has no authenticated-role write policy at all; see
+// AGENTS.md). Idempotent: does nothing if this competition already has a
+// bracket_stages row, so a feeder trigger firing more than once (e.g. two
+// round-1 results confirmed close together) can't double-generate it.
+export async function persistGeneratedBracket(
+  tournamentId: string,
+  competitionId: string,
+  competitionName: string,
+  registrationIds: string[],
+): Promise<{ error: string | null }> {
+  if (registrationIds.length < 2) return { error: null };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from("bracket_stages")
+    .select("competition_id")
+    .eq("competition_id", competitionId)
+    .maybeSingle();
+  if (existing) return { error: null };
+
+  const { data, participantMap, fixtures } = await generateKnockoutBracket(
+    competitionName,
+    registrationIds,
+  );
+
+  const { error: stageError } = await admin
+    .from("bracket_stages")
+    .insert({ competition_id: competitionId, participant_map: participantMap, data });
+  if (stageError) return { error: stageError.message };
+
+  const { error: insertError } = await admin.from("fixtures").insert(
+    fixtures.map((f) => ({
+      tournament_id: tournamentId,
+      competition_id: competitionId,
+      round: f.round,
+      bracket_match_id: f.bracketMatchId,
+      team1_registration_id: f.team1RegistrationId,
+      team2_registration_id: f.team2RegistrationId,
+    })),
+  );
+  return { error: insertError?.message ?? null };
+}
+
+// Round 1 is identified structurally (round.number === 1 within the
+// bracket's own stored data), not by the human-readable round label
+// (which depends on bracket size — "Round of 16" vs "Quarter-final") —
+// see roundLabel() above for why those two things differ.
+// "Complete" means every round-1 match has a decided win/loss result
+// recorded (advanceBracket only ever writes a decisive result — see its
+// level-score guard — so a recorded result always has a real loser,
+// except a bye, which has no opponent at all and is skipped).
+function getRoundOneLosers(
+  data: Database,
+  participantMap: (string | null)[],
+): { complete: boolean; loserRegistrationIds: string[] } {
+  const round = data.round.find((r) => r.number === 1);
+  if (!round) return { complete: false, loserRegistrationIds: [] };
+
+  const matches = data.match.filter((m) => m.round_id === round.id);
+  if (matches.length === 0) return { complete: false, loserRegistrationIds: [] };
+
+  const losers: string[] = [];
+  for (const m of matches) {
+    const r1 = m.opponent1?.result;
+    const r2 = m.opponent2?.result;
+    if (r1 !== "loss" && r2 !== "loss") {
+      return { complete: false, loserRegistrationIds: [] };
+    }
+    const loserOpponent = r1 === "loss" ? m.opponent1 : m.opponent2;
+    if (loserOpponent?.id == null) continue; // a bye — no real loser to feed onward
+    const regId = participantMap[loserOpponent.id as number];
+    if (regId) losers.push(regId);
+  }
+  return { complete: true, loserRegistrationIds: losers };
+}
+
+// Called at the end of advanceBracket, every time a bracket's state
+// changes — checks whether any OTHER competition declares this one as
+// its feeder_competition_id (Shield <- Championship) and, once this
+// competition's round 1 is fully confirmed, generates that dependent
+// competition's bracket from its own group-position entrants (if any)
+// plus this round's losers. Idempotent via persistGeneratedBracket, and
+// a no-op for the common case of no dependents.
+async function maybeAutoGenerateFeederCompetitions(
+  feederCompetitionId: string,
+  feederData: Database,
+  feederParticipantMap: (string | null)[],
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data: dependents } = await admin
+    .from("competitions")
+    .select("id, name, tournament_id, advance_from_position_start, advance_from_position_end")
+    .eq("feeder_competition_id", feederCompetitionId);
+
+  if (!dependents || dependents.length === 0) return;
+
+  const { complete, loserRegistrationIds } = getRoundOneLosers(feederData, feederParticipantMap);
+  if (!complete) return;
+
+  for (const dep of dependents) {
+    let directEntrants: string[] = [];
+    if (dep.advance_from_position_start != null && dep.advance_from_position_end != null) {
+      const fixtures = await getFixtures(dep.tournament_id, admin);
+      if (!allGroupsComplete(fixtures)) continue; // groups not finished — retry on the next trigger
+      directEntrants = getGroupPositionEntrants(
+        fixtures,
+        dep.advance_from_position_start,
+        dep.advance_from_position_end,
+      );
+    }
+    await persistGeneratedBracket(dep.tournament_id, dep.id, dep.name, [
+      ...directEntrants,
+      ...loserRegistrationIds,
+    ]);
+  }
+}
+
 // Called only from the fixtures confirmScore action, only after
 // resolve_score() has already confirmed the result through the normal
 // RLS-respecting client — this function's use of the service-role client
@@ -179,4 +301,6 @@ export async function advanceBracket(fixtureId: string): Promise<void> {
       .eq("competition_id", fixture.competition_id)
       .eq("bracket_match_id", m.id as number);
   }
+
+  await maybeAutoGenerateFeederCompetitions(fixture.competition_id, newData, participantMap);
 }
