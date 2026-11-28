@@ -55,3 +55,11 @@ the fragment before rendering the password form.
 
 After changing Supabase's Site URL, request a fresh reset email: links already
 sent still contain their original redirect address.
+
+## Team creation permissions
+
+If the existing hosted schema reports `permission denied for table teams`,
+apply `supabase/migrations/20261128091741_team_creation_api_grants.sql` in that
+project's SQL Editor. It grants the operations used by team creation/listing
+while retaining RLS and rejecting a forged team owner. Do not rerun the full
+combined installer on an existing database.
