@@ -243,6 +243,23 @@ the knockout bracket's full play-through were verified. A migration that
 "looks right" and a migration that has been shown to reject what it
 should reject are not the same thing.
 
+**One real blind spot this local harness had**: this session's test
+setup granted `authenticated` a blanket `select, insert, update, delete
+on all tables` once, for convenience, before testing anything — which
+quietly masked a real gap for weeks of work. **A Supabase project with
+the Data API enabled does not grant table access just because a
+migration creates a table with RLS policies.** RLS only restricts rows
+once a base SQL-level `GRANT` already allows the operation at all; most
+tables in this schema had RLS policies but no corresponding `GRANT ...
+to authenticated` until `20261128091741`/`20261128100000` added them,
+found only once a real Supabase project was actually tested against
+(something this sandbox's network policy never allowed doing directly —
+it took a parallel session with that access to catch it). **Any new
+table needs an explicit `GRANT` for `authenticated` covering whatever
+operations its RLS policies are meant to allow, or it will work in this
+local harness and fail outright on a real project** — don't rely on the
+local harness's blanket grant as a stand-in for checking this.
+
 # Safeguarding
 
 This platform will eventually handle youth and junior team data. Known,
