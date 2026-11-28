@@ -94,6 +94,46 @@ export async function listOrgTournaments(orgId: string): Promise<OrgTournamentSu
   return data ?? [];
 }
 
+// A lighter view of a tournament for "copy settings from an existing
+// tournament" on the create form — deliberately excludes dates and
+// registration windows, which are expected to differ for a new edition
+// (e.g. next year's Churches Cup), but carries over format/venue/fee/etc.
+export type TournamentTemplate = {
+  id: string;
+  name: string;
+  format: string;
+  ageCategory: string;
+  maxTeams: string;
+  venueName: string;
+  venueAddress: string;
+  entryFee: string;
+  isPublic: boolean;
+};
+
+export async function listOrgTournamentTemplates(orgId: string): Promise<TournamentTemplate[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tournaments")
+    .select("id, name, format, age_category, max_teams, venue, entry_fee_cents, is_public")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((t) => {
+    const venue = (t.venue as { name?: string; address?: string } | null) ?? {};
+    return {
+      id: t.id,
+      name: t.name,
+      format: t.format ?? "",
+      ageCategory: t.age_category ?? "",
+      maxTeams: t.max_teams != null ? String(t.max_teams) : "",
+      venueName: venue.name ?? "",
+      venueAddress: venue.address ?? "",
+      entryFee: t.entry_fee_cents ? (t.entry_fee_cents / 100).toFixed(2) : "",
+      isPublic: t.is_public,
+    };
+  });
+}
+
 export async function getOrgIdBySlug(orgSlug: string): Promise<string | null> {
   const supabase = await createClient();
   const { data } = await supabase

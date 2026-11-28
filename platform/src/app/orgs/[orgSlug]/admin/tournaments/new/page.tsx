@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { isOrgAdmin } from "@/lib/orgs";
+import { getOrgIdBySlug, listOrgTournamentTemplates } from "@/lib/tournaments";
 import { NewTournamentForm } from "./new-tournament-form";
 
 type Props = { params: Promise<{ orgSlug: string }> };
@@ -22,10 +23,13 @@ async function Gate({ params }: Props) {
     notFound();
   }
 
+  const orgId = await getOrgIdBySlug(orgSlug);
+  const templates = orgId ? await listOrgTournamentTemplates(orgId) : [];
+
   return (
     <>
       <h1 className="text-xl font-semibold">New tournament</h1>
-      <NewTournamentForm orgSlug={orgSlug} />
+      <NewTournamentForm orgSlug={orgSlug} templates={templates} />
     </>
   );
 }
