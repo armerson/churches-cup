@@ -2,10 +2,12 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { getCurrentUser, getCurrentMemberships } from "@/lib/auth";
 import { signOut } from "./(auth)/actions";
+import { RecoveryRedirect } from "./recovery-redirect";
 
 export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 p-8 text-center">
+      <RecoveryRedirect />
       <h1 className="text-2xl font-semibold">ACF Tournaments</h1>
       <p className="max-w-md text-sm text-zinc-500">
         Multi-organisation tournament platform scaffold. Tournament features

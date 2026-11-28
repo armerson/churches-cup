@@ -49,8 +49,24 @@ export async function signIn(
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    // Deliberately generic: don't reveal whether the email is registered.
-    return { error: "Incorrect email or password." };
+    if (error.code === "email_not_confirmed") {
+      return { error: "Confirm your email using the link in your inbox, then sign in." };
+    }
+    if (error.code === "invalid_credentials") {
+      // Don't reveal whether the email is registered.
+      return { error: "Incorrect email or password." };
+    }
+    if (error.status === 429) {
+      return { error: "Too many sign-in attempts. Please wait a moment and try again." };
+    }
+
+    // Record diagnostic fields without logging credentials or session tokens.
+    console.error("Sign-in service error", {
+      code: error.code,
+      status: error.status,
+      name: error.name,
+    });
+    return { error: "Sign-in is temporarily unavailable. Please try again shortly." };
   }
 
   redirect("/");

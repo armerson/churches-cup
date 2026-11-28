@@ -6,6 +6,7 @@ export default function SignInPage() {
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-4">
       <h1 className="text-xl font-semibold">Sign in</h1>
       <SignInForm />
+      <Link href="/forgot-password" className="text-sm underline">Forgot password?</Link>
       <p className="text-sm text-zinc-500">
         No account?{" "}
         <Link href="/sign-up" className="underline">
