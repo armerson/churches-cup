@@ -3,14 +3,22 @@ import { redirect } from "next/navigation";
 import { type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// Supabase's signup-confirmation link points here with a token_hash + type;
-// exchanging it sets the session cookie via the server client's own cookie
-// handlers (see lib/supabase/server.ts), so nothing further is needed here.
+// Support both custom token-hash email templates and standard PKCE links.
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/";
+  const code = searchParams.get("code");
+  // Restrict the destination to the two flows handled here.
+  const next = type === "recovery" || searchParams.get("next") === "/reset-password"
+    ? "/reset-password"
+    : "/";
+
+  if (code) {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) redirect(next);
+  }
 
   if (tokenHash && type) {
     const supabase = await createClient();
@@ -23,5 +31,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  redirect("/sign-in?error=confirmation-failed");
+  redirect(next === "/reset-password"
+    ? "/reset-password?error=invalid-link"
+    : "/sign-in?error=confirmation-failed");
 }
