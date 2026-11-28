@@ -1,8 +1,10 @@
--- GENERATED FILE — all 9 migrations in supabase/migrations/, concatenated
--- in order, for pasting into the Supabase Dashboard's SQL Editor on a fresh
--- database. Existing projects should apply only their new migration files.
--- Regenerate this file from supabase/migrations/ after adding migrations.
--- Verified against a temporary Postgres 17 database.
+-- GENERATED FILE — all migrations in supabase/migrations/, concatenated
+-- in order, for pasting into the Supabase Dashboard's SQL Editor in one
+-- go. Regenerate with:
+--   cat supabase/migrations/*.sql > scripts/apply-all-migrations.sql
+-- if new migrations are added — don't hand-edit this file directly.
+-- Verified to apply cleanly, start to finish, against a fresh Postgres 16
+-- database before being committed.
 
 -- Core multi-organisation tournament schema (Phase 1 foundation).
 --
@@ -615,7 +617,6 @@ create policy "authenticated users append audit log entries"
 insert into public.organisations (name, slug)
 values ('Ambassadors FC', 'ambassadors')
 on conflict (slug) do nothing;
-
 -- Auto-create a public.profiles row whenever a new auth.users row appears,
 -- so every sign-up method (password, OAuth, magic link) gets one uniformly
 -- instead of relying on application code to remember to create it.
@@ -638,7 +639,6 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
     after insert on auth.users
     for each row execute function public.handle_new_user();
-
 -- Atomic team registration: capacity check + insert happen inside one
 -- transaction, under a row lock on the tournament, so concurrent
 -- registrations for the same tournament serialize instead of racing on the
@@ -726,7 +726,6 @@ end;
 $$;
 
 grant execute on function public.register_team_for_tournament(uuid, uuid, text) to authenticated;
-
 -- Score submit/confirm/dispute, ported from churches-cup's proven
 -- Code.gs submitScore/confirmKOMatch/updateStatus flow onto the new
 -- schema, now backed by real accounts instead of shared team PINs.
@@ -864,7 +863,6 @@ end;
 $$;
 
 grant execute on function public.resolve_score(uuid, text, text) to authenticated;
-
 -- Support for knockout bracket progression. Unlike round-robin, a
 -- knockout round's pairings depend on the previous round's results, so
 -- generating a bracket doesn't fully determine every fixture up front —
@@ -913,7 +911,6 @@ create policy "tournament admins read bracket stage state"
         where c.id = bracket_stages.competition_id
           and public.administers_tournament(c.tournament_id)
     ));
-
 -- Knockout ties need a penalty shootout result to produce a winner —
 -- submit_score previously had nowhere to record one. Postgres resolves
 -- functions by name *and* argument list, so just adding parameters would
@@ -975,7 +972,6 @@ end;
 $$;
 
 grant execute on function public.submit_score(uuid, int, int, jsonb, jsonb, int, int) to authenticated;
-
 -- Stripe Connect payments. Each organisation gets its own connected
 -- Express account and receives its own tournament income — the platform
 -- never holds organiser revenue itself (brief §7: "Do not assume all
@@ -1102,7 +1098,6 @@ end;
 $$;
 
 grant execute on function public.register_team_for_tournament(uuid, uuid, text) to authenticated;
-
 -- The registrations UPDATE policy from the core schema let a team
 -- manager set their OWN registration to any status via a direct client
 -- update — including 'confirmed', with no check that a paid tournament's
@@ -1220,7 +1215,6 @@ end;
 $$;
 
 grant execute on function public.reserve_registration_for_payment(uuid) to authenticated;
-
 -- Projects with opt-in Data API exposure do not grant table access when
 -- migrations create tables. RLS policies alone do not provide those grants.
 -- Scope this fix to the existing create-team and team-list queries.
@@ -1261,3 +1255,57 @@ grant execute on function public.manages_team(uuid) to authenticated;
 grant execute on function public.administers_tournament(uuid) to authenticated;
 grant execute on function public.has_org_role(uuid, text[]) to authenticated;
 grant execute on function public.is_platform_admin() to authenticated;
+-- A parallel session found and fixed this for teams/team_contacts/
+-- team_managers/registrations/tournaments (20261128091741): a Supabase
+-- project with the Data API enabled does not grant table access just
+-- because a migration creates a table with RLS policies — RLS only
+-- restricts *rows* once a base SQL-level privilege already allows the
+-- operation. That fix only covered 5 tables; this covers the rest.
+-- Caught by that session actually testing against a real project, which
+-- this sandbox's network policy doesn't allow — every grant below is a
+-- real, previously-missing gap, not a defensive guess.
+--
+-- RLS continues to do the real restricting in every case — these grants
+-- are deliberately broad (e.g. authenticated gets `insert` on
+-- `organisations` even though only a platform_admin's insert actually
+-- succeeds) because that's exactly how every other table here already
+-- works: the grant is necessary but not sufficient, RLS is what's
+-- sufficient.
+--
+-- Deliberately NOT granted here, unchanged from their original design:
+-- `bracket_stages` and `webhook_events` have no authenticated-role grant
+-- at all — they are only ever written by the service-role client (see
+-- AGENTS.md's security model section). Granting them here would quietly
+-- undo that boundary.
+
+-- 20261128091741 only granted select on tournaments (enough for reading
+-- a tournament, not for an org_admin to create or publish one).
+grant insert, update, delete on public.tournaments to authenticated;
+
+grant select, insert, update, delete on public.organisations to authenticated;
+grant select, insert, update, delete on public.platform_admins to authenticated;
+grant select, insert, update, delete on public.profiles to authenticated;
+grant select, insert, update, delete on public.memberships to authenticated;
+grant select, insert, update, delete on public.competitions to authenticated;
+grant select, insert, update, delete on public.pitches to authenticated;
+grant select, insert, update, delete on public.fixtures to authenticated;
+grant select, insert, update, delete on public.scores to authenticated;
+grant select, insert, update, delete on public.notices to authenticated;
+grant select, insert, update, delete on public.rosters to authenticated;
+grant select, insert on public.payments to authenticated;
+grant select, insert on public.audit_log to authenticated;
+
+-- Separate, genuine bug found alongside the grants above while checking
+-- every table's RLS against what the app actually does: lib/payments.ts
+-- inserts a `payments` row (via the regular, RLS-respecting client)
+-- right after reserve_registration_for_payment() has already verified
+-- the caller manages that registration's team — but no INSERT policy on
+-- `payments` ever existed for authenticated users at all, independent of
+-- the grant above. Every real Checkout Session creation would have
+-- failed at that insert.
+create policy "team managers create their own payment record"
+    on public.payments for insert
+    with check (exists (
+        select 1 from public.registrations r
+        where r.id = payments.registration_id and public.manages_team(r.team_id)
+    ));
